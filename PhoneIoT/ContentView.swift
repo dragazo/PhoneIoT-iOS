@@ -45,14 +45,7 @@ struct ContentView: View {
     private static let serverPort: UInt16 = 1976
     
     @State private var udp: NWConnection?
-    @State private var sendThread: DispatchQueue?
-    @State private var recvThread: DispatchQueue?
     @State private var hearbeatTimer: Timer?
-    
-    private var sendMutex: NSCondition = NSCondition()
-    @State private var sendQueue: [[UInt8]] = Array()
-    
-    @State private var nextHeartbeat: Double = 0.0
     private static let heartbeatInterval: Double = 30
     
     private func getPassword() -> UInt64 {
@@ -67,80 +60,76 @@ struct ContentView: View {
     }
     
     private func netsbloxify(_ msg: ArraySlice<UInt8>) -> [UInt8] {
-        var expanded: Array<UInt8> = Array()
+        var expanded = [UInt8]()
         expanded.append(contentsOf: macaddr)
         expanded.append(contentsOf: [0, 0, 0, 0])
         expanded.append(contentsOf: msg)
         return expanded
     }
     private func send(_ msg: [UInt8]) {
-        sendMutex.lock()
-        sendQueue.append(msg)
-        sendMutex.signal()
-        sendMutex.unlock()
+        udp?.send(content: msg, completion: .contentProcessed { err in
+            if let err = err {
+                print("send error: \(err)")
+            }
+        })
     }
     private func connectToServer() {
+        // if we already had a connection, kill it first
+        if let old = udp {
+            print("killing previous connection")
+            old.cancel()
+        }
+        
+        // start up the connection
         print("connecting to \(addresstxt):\(Self.serverPort)")
         udp = NWConnection(
             host: NWEndpoint.Host(addresstxt),
             port: NWEndpoint.Port(rawValue: Self.serverPort)!,
             using: .udp)
-        send(netsbloxify([ UInt8(ascii: "I") ]))
+//        udp!.stateUpdateHandler = { state in
+//            switch (state) {
+//            case .ready: print("udp state: ready")
+//            case .setup: print("udp state: setup")
+//            case .cancelled: print("udp state: cancelled")
+//            case .preparing: print("udp state: preparing")
+//            default: print("udp state: UNKNOWN OR ERR")
+//            }
+//        };
+        udp!.start(queue: .global())
         
-        if sendThread == nil {
-            sendThread = DispatchQueue(label: "send-thread")
-            sendThread?.async {
-                sendMutex.lock()
-                while true {
-                    while sendQueue.isEmpty {
-                        sendMutex.wait()
-                    }
-                    for msg in sendQueue {
-                        udp?.send(content: msg, completion: .contentProcessed { err in
-                            if let err = err {
-                                print("netsend error: \(err)")
-                            }
-                            print("no error")
-                        })
-                    }
-                    sendQueue.removeAll()
+        // start listening for (complete) packets
+        udp!.receiveMessage { msg, context, isComplete, error in
+            if msg != nil && error == nil && isComplete {
+                let content = [UInt8](msg!)
+
+                // check for things that don't need auth
+                if content.count == 1 && content[0] == UInt8(ascii: "I") {
+                    // connected to server ack
+                    print("connection ack from NetsBlox")
+                    return
+                }
+
+                // ignore anything that's invalid or fails to auth
+                if content.count < 9 || fromBEBytes(u64: content[1..<9]) != getPassword() {
+                    return
+                }
+
+                switch content[0] {
+                case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
+                default: print("unrecognized request code: \(content[0])")
                 }
             }
         }
+        
+        // start the hearbeat timer if it isn't already - we need one per 2 min, so 30 secs will allow for some dropped packets
         if hearbeatTimer == nil {
             hearbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { t in
                 send(netsbloxify([ UInt8(ascii: "I") ]))
             }
         }
-        if recvThread == nil {
-            recvThread = DispatchQueue(label: "recv-thread")
-            recvThread?.async {
-                while true {
-                    udp?.receiveMessage { msg, context, isComplete, error in
-                        if msg != nil && error == nil && isComplete {
-                            let content = [UInt8](msg!)
-                            
-                            // check for things that don't need auth
-                            if content.count == 1 && content[0] == UInt8(ascii: "I") {
-                                // connected to server ack
-                                print("connection ack")
-                                return
-                            }
-                            
-                            // ignore anything that's invalid or fails to auth
-                            if content.count < 9 || fromBEBytes(u64: content[1..<9]) != getPassword() {
-                                return
-                            }
-                            
-                            switch content[0] {
-                            case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
-                            default: print("unrecognized request code: \(content[0])")
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        
+        // send a heartbeat to connect immediately, but add a conn ack request flag so we get a message back
+        send(netsbloxify([ UInt8(ascii: "I"), 0 ]))
     }
     
     private func initialize() {
