@@ -33,6 +33,24 @@ func fromBEBytes(u64: ArraySlice<UInt8>) -> UInt64 {
     return UInt64(bigEndian: data.withUnsafeBytes { $0.load(as: UInt64.self) })
 }
 
+struct ConfirmDialog: ViewModifier {
+    @Binding var visible: Bool
+    let title: String
+    let message: String
+    let action: () -> ()
+    
+    func body(content: Content) -> some View {
+        content.alert(isPresented: $visible) { () -> Alert in
+            Alert(
+                title: Text(title),
+                message: Text(message),
+                primaryButton: .default(Text("OK"), action: action),
+                secondaryButton: .cancel()
+            )
+        }
+    }
+}
+
 struct ContentView: View {
     @State private var macaddr: [UInt8] = [UInt8](repeating: 0, count: 6)
     @State private var password: UInt64 = 0
@@ -48,6 +66,8 @@ struct ContentView: View {
     @State private var hearbeatTimer: Timer?
     private static let heartbeatInterval: Double = 30
     
+    @State private var changePasswordDialog = false
+    
     private func getPassword() -> UInt64 {
         let time = getTime()
         if time < passwordExpiry {
@@ -56,6 +76,7 @@ struct ContentView: View {
         
         password = UInt64.random(in: 0...0x7fffffffffffffff)
         passwordExpiry = time + Self.passwordLifecycle
+        print("changed password to \(password)")
         return password
     }
     
@@ -72,6 +93,32 @@ struct ContentView: View {
                 print("send error: \(err)")
             }
         })
+    }
+    private func messageHandler(msg: Data?, context: NWConnection.ContentContext?, isComplete: Bool, error: NWError?) {
+        // go ahead and re-register ourselves to receive the next packet
+        udp?.receiveMessage(completion: messageHandler)
+        
+        // handle the message, if valid
+        if msg != nil && error == nil && isComplete {
+            let content = [UInt8](msg!)
+
+            // check for things that don't need auth
+            if content.count == 1 && content[0] == UInt8(ascii: "I") {
+                // connected to server ack
+                print("connection ack from NetsBlox")
+                return
+            }
+
+            // ignore anything that's invalid or fails to auth
+            if content.count < 9 || fromBEBytes(u64: content[1..<9]) != getPassword() {
+                return
+            }
+
+            switch content[0] {
+            case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
+            default: print("unrecognized request code: \(content[0])")
+            }
+        }
     }
     private func connectToServer() {
         // if we already had a connection, kill it first
@@ -98,28 +145,7 @@ struct ContentView: View {
         udp!.start(queue: .global())
         
         // start listening for (complete) packets
-        udp!.receiveMessage { msg, context, isComplete, error in
-            if msg != nil && error == nil && isComplete {
-                let content = [UInt8](msg!)
-
-                // check for things that don't need auth
-                if content.count == 1 && content[0] == UInt8(ascii: "I") {
-                    // connected to server ack
-                    print("connection ack from NetsBlox")
-                    return
-                }
-
-                // ignore anything that's invalid or fails to auth
-                if content.count < 9 || fromBEBytes(u64: content[1..<9]) != getPassword() {
-                    return
-                }
-
-                switch content[0] {
-                case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
-                default: print("unrecognized request code: \(content[0])")
-                }
-            }
-        }
+        udp?.receiveMessage(completion: messageHandler)
         
         // start the hearbeat timer if it isn't already - we need one per 2 min, so 30 secs will allow for some dropped packets
         if hearbeatTimer == nil {
@@ -149,8 +175,8 @@ struct ContentView: View {
     var body: some View {
         VStack {
             Text("PhoneIoT - \(toHex(bytes: macaddr[...]))")
-                .font(.system(size: 16))
-            Text("password - \(String(format: "%016x", password))")
+                .font(.system(size: 20))
+            Text("password - \(String(format: "%016llx", password))")
                 .font(.system(size: 14))
             
             Image(uiImage: controlsImage)
@@ -183,7 +209,7 @@ struct ContentView: View {
                 Spacer()
                 
                 Button("New Password") {
-                    
+                    changePasswordDialog = true
                 }
                 .padding()
                 .background(Color.blue)
@@ -192,6 +218,15 @@ struct ContentView: View {
         }
         .padding()
         .onAppear(perform: initialize)
+        .modifier(ConfirmDialog(
+            visible: $changePasswordDialog,
+            title: "New Password",
+            message: "Are you sure you would like to generate a new password? This may break active connections.",
+            action: {
+                passwordExpiry = 0
+                let _ = getPassword()
+            }
+        ))
     }
 }
 
