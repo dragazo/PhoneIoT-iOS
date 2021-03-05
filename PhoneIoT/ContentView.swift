@@ -32,6 +32,9 @@ func fromBEBytes(u64: ArraySlice<UInt8>) -> UInt64 {
     let data = Data(u64)
     return UInt64(bigEndian: data.withUnsafeBytes { $0.load(as: UInt64.self) })
 }
+func toBEBytes(u64: UInt64) -> [UInt8] {
+    withUnsafeBytes(of: u64.bigEndian, Array.init)
+}
 
 struct ConfirmDialog: ViewModifier {
     @Binding var visible: Bool
@@ -94,6 +97,14 @@ struct ContentView: View {
             }
         })
     }
+    private func send(heading: UInt8, sensorData: [Double]?) {
+        var msg = [UInt8]()
+        msg.append(heading)
+        for datum in sensorData ?? [Double]() {
+            msg.append(contentsOf: toBEBytes(u64: datum.bitPattern))
+        }
+        send(netsbloxify(msg[...]))
+    }
     private func messageHandler(msg: Data?, context: NWConnection.ContentContext?, isComplete: Bool, error: NWError?) {
         // go ahead and re-register ourselves to receive the next packet
         udp?.receiveMessage(completion: messageHandler)
@@ -115,6 +126,7 @@ struct ContentView: View {
             }
 
             switch content[0] {
+            case UInt8(ascii: "A"): send(heading: content[0], sensorData: Sensors.accelerometer.getData())
             case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
             default: print("unrecognized request code: \(content[0])")
             }
@@ -133,15 +145,6 @@ struct ContentView: View {
             host: NWEndpoint.Host(addresstxt),
             port: NWEndpoint.Port(rawValue: Self.serverPort)!,
             using: .udp)
-//        udp!.stateUpdateHandler = { state in
-//            switch (state) {
-//            case .ready: print("udp state: ready")
-//            case .setup: print("udp state: setup")
-//            case .cancelled: print("udp state: cancelled")
-//            case .preparing: print("udp state: preparing")
-//            default: print("udp state: UNKNOWN OR ERR")
-//            }
-//        };
         udp!.start(queue: .global())
         
         // start listening for (complete) packets
@@ -171,6 +174,9 @@ struct ContentView: View {
             addr = res
         }
         macaddr = addr!
+        
+        // start up the sensors
+        Sensors.start()
     }
     var body: some View {
         VStack {
