@@ -11,12 +11,12 @@ import Network
 func toHex(bytes: ArraySlice<UInt8>) -> String {
     bytes.map({ String(format: "%02x", $0) }).joined()
 }
-func defaultImage() -> UIImage {
+func defaultImage(gray: CGFloat) -> UIImage {
     let size = CGSize(width: 50, height: 50)
     UIGraphicsBeginImageContext(size)
     
     let context = UIGraphicsGetCurrentContext()!
-    context.setFillColor(gray: 0.0, alpha: 1.0)
+    context.setFillColor(gray: gray, alpha: 1.0)
     context.fill(.infinite)
     
     let img = UIGraphicsGetImageFromCurrentImageContext()!
@@ -36,31 +36,15 @@ func toBEBytes(u64: UInt64) -> [UInt8] {
     withUnsafeBytes(of: u64.bigEndian, Array.init)
 }
 
-struct ConfirmDialog: ViewModifier {
-    @Binding var visible: Bool
-    let title: String
-    let message: String
-    let action: () -> ()
-    
-    func body(content: Content) -> some View {
-        content.alert(isPresented: $visible) { () -> Alert in
-            Alert(
-                title: Text(title),
-                message: Text(message),
-                primaryButton: .default(Text("OK"), action: action),
-                secondaryButton: .cancel()
-            )
-        }
-    }
-}
-
 struct ContentView: View {
+    @State private var showMenu = false
+    
     @State private var macaddr: [UInt8] = [UInt8](repeating: 0, count: 6)
     @State private var password: UInt64 = 0
     @State private var passwordExpiry: Double = Double.infinity
-    private static let passwordLifecycle: Double = 60 * 60
+    private static let passwordLifecycle: Double = 24 * 60 * 60
     
-    @State private var controlsImage: UIImage = defaultImage()
+    @State private var controlsImage: UIImage = defaultImage(gray: 1.0)
     
     @State private var addresstxt: String = "10.0.0.24"
     private static let serverPort: UInt16 = 1976
@@ -70,6 +54,9 @@ struct ContentView: View {
     private static let heartbeatInterval: Double = 30
     
     @State private var changePasswordDialog = false
+    @State private var runInBackgroundDialog = false
+    
+    @State private var runInBackground = false
     
     private func getPassword() -> UInt64 {
         let time = getTime()
@@ -77,7 +64,7 @@ struct ContentView: View {
             return password
         }
         
-        password = UInt64.random(in: 0...0x7fffffffffffffff)
+        password = UInt64.random(in: 0...0xffffffff)
         passwordExpiry = time + Self.passwordLifecycle
         print("changed password to \(password)")
         return password
@@ -179,60 +166,127 @@ struct ContentView: View {
         Sensors.start()
     }
     var body: some View {
-        VStack {
-            Text("PhoneIoT - \(toHex(bytes: macaddr[...]))")
-                .font(.system(size: 20))
-            Text("password - \(String(format: "%016llx", password))")
-                .font(.system(size: 14))
-            
-            Image(uiImage: controlsImage)
-                .resizable()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { e in
-                            print("click move \(e.location)")
-                        }
-                        .onEnded { e in
-                            print("click end \(e.location)")
-                        }
-                )
-            
-            TextField("Server Address: ", text: $addresstxt)
-                .multilineTextAlignment(.center)
-                .padding(.top, 10)
-                .padding(.bottom, 10)
-                .border(Color.black)
-            
-            HStack {
-                Button("Connect") {
-                    connectToServer()
-                }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(Color.white)
+        NavigationView {
+            ZStack {
+                Image(uiImage: controlsImage)
+                    .resizable()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { e in
+                                print("click move \(e.location)")
+                            }
+                            .onEnded { e in
+                                print("click end \(e.location)")
+                            }
+                    )
                 
-                Spacer()
-                
-                Button("New Password") {
-                    changePasswordDialog = true
+                GeometryReader { geometry in
+                    HStack {
+                        VStack {
+                            Group {
+                                Spacer().frame(height: 20)
+                                
+                                Image("AppIcon-180")
+                                    .resizable()
+                                    .frame(width: geometry.size.width / 5, height: geometry.size.width / 5)
+                                
+                                Text("PhoneIoT")
+                                    .font(.system(size: 24))
+                                
+                                Spacer().frame(height: 5)
+                                
+                                Text("Device ID: \(toHex(bytes: macaddr[...]))")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(Color.gray)
+                                Text("Password: \(String(format: "%08llx", password))")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(Color.gray)
+                                
+                                Spacer().frame(height: 40)
+                            }
+                            Group {
+                                Text("Server Address:")
+                                
+                                TextField("Server Address", text: $addresstxt)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.top, 10)
+                                Divider().frame(width: geometry.size.width * 0.7)
+                                Spacer().frame(height: 20)
+                                
+                                Button("Connect") {
+                                    connectToServer()
+                                }
+                                .padding(EdgeInsets(top: 7, leading: 15, bottom: 7, trailing: 15))
+                                .background(Color.blue)
+                                .cornerRadius(5)
+                                .foregroundColor(Color.white)
+                                
+                                Spacer().frame(height: 40)
+                                Group {
+                                    Toggle("Run In background", isOn: $runInBackground)
+                                        .onChange(of: runInBackground, perform: { _ in
+                                            if runInBackground {
+                                                runInBackgroundDialog = true
+                                            }
+                                        })
+                                        .alert(isPresented: $runInBackgroundDialog) {
+                                            Alert(
+                                                title: Text("Warning"),
+                                                message: Text("Due to accessing sensor data, running in the background can consume a lot of power if you forget to close the app. Additionally, if location is enabled, it may still be tracked while running in the background."),
+                                                primaryButton: .default(Text("OK")) { },
+                                                secondaryButton: .cancel(Text("Cancel")) {
+                                                    runInBackground = false
+                                                })
+                                        }
+                                }
+                                .frame(width: geometry.size.width * 0.6)
+                                Spacer().frame(height: 40)
+                                
+                                Button("New Password") {
+                                    changePasswordDialog = true
+                                }
+                                .padding(EdgeInsets(top: 7, leading: 15, bottom: 7, trailing: 15))
+                                .background(Color.blue)
+                                .cornerRadius(5)
+                                .foregroundColor(Color.white)
+                                .alert(isPresented: $changePasswordDialog) {
+                                    Alert(
+                                        title: Text("New Password"),
+                                        message: Text("Are you sure you would like to generate a new password? This may break active connections."),
+                                        primaryButton: .default(Text("OK")) {
+                                            passwordExpiry = 0
+                                            let _ = getPassword()
+                                        },
+                                        secondaryButton: .cancel(Text("Cancel")) { })
+                                }
+                            }
+                            Spacer()
+                        }
+                        .frame(width: geometry.size.width * 0.75, height: geometry.size.height)
+                        .background(Color.white.edgesIgnoringSafeArea(.bottom))
+                        .offset(x: self.showMenu ? 0 : -UIScreen.main.bounds.width)
+                        .animation(.interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.6))
+                        
+                        Spacer()
+                    }
+                    .background(Color.black.opacity(self.showMenu ? 0.5 : 0).edgesIgnoringSafeArea(.bottom))
                 }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(Color.white)
-            }
+            }.navigationBarTitle("PhoneIoT", displayMode: .inline)
+            .navigationBarItems(leading:
+                Button(action: {
+                    showMenu.toggle()
+                }, label: {
+                    if showMenu {
+                        Image(systemName: "arrow.left").font(.body).foregroundColor(.black)
+                    }
+                    else {
+                        Image("Menu").renderingMode(.original)
+                    }
+                })
+            )
         }
-        .padding()
         .onAppear(perform: initialize)
-        .modifier(ConfirmDialog(
-            visible: $changePasswordDialog,
-            title: "New Password",
-            message: "Are you sure you would like to generate a new password? This may break active connections.",
-            action: {
-                passwordExpiry = 0
-                let _ = getPassword()
-            }
-        ))
     }
 }
 
