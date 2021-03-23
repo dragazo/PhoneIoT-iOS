@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		030742E7260970D400D46A5A /* Controls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030742E6260970D400D46A5A /* Controls.swift */; };
+		030742E926098F6100D46A5A /* Conversions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030742E826098F6100D46A5A /* Conversions.swift */; };
 		0326C78025F2052E00240D77 /* Sensors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0326C77F25F2052E00240D77 /* Sensors.swift */; };
 		03A3353C25E8B6F0004F65DD /* PhoneIoTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A3353B25E8B6F0004F65DD /* PhoneIoTApp.swift */; };
 		03A3353E25E8B6F0004F65DD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A3353D25E8B6F0004F65DD /* ContentView.swift */; };
@@ -15,6 +17,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		030742E6260970D400D46A5A /* Controls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controls.swift; sourceTree = "<group>"; };
+		030742E826098F6100D46A5A /* Conversions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversions.swift; sourceTree = "<group>"; };
 		0326C77F25F2052E00240D77 /* Sensors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sensors.swift; sourceTree = "<group>"; };
 		03A3353825E8B6F0004F65DD /* PhoneIoT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhoneIoT.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		03A3353B25E8B6F0004F65DD /* PhoneIoTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneIoTApp.swift; sourceTree = "<group>"; };
@@ -60,6 +64,8 @@
 				03A3354425E8B6F1004F65DD /* Info.plist */,
 				03A3354125E8B6F1004F65DD /* Preview Content */,
 				0326C77F25F2052E00240D77 /* Sensors.swift */,
+				030742E6260970D400D46A5A /* Controls.swift */,
+				030742E826098F6100D46A5A /* Conversions.swift */,
 			);
 			path = PhoneIoT;
 			sourceTree = "<group>";
@@ -141,7 +147,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				030742E926098F6100D46A5A /* Conversions.swift in Sources */,
 				03A3353E25E8B6F0004F65DD /* ContentView.swift in Sources */,
+				030742E7260970D400D46A5A /* Controls.swift in Sources */,
 				03A3353C25E8B6F0004F65DD /* PhoneIoTApp.swift in Sources */,
 				0326C78025F2052E00240D77 /* Sensors.swift in Sources */,
 			);

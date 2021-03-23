@@ -11,29 +11,22 @@ import Network
 func toHex(bytes: ArraySlice<UInt8>) -> String {
     bytes.map({ String(format: "%02x", $0) }).joined()
 }
-func defaultImage(gray: CGFloat) -> UIImage {
-    let size = CGSize(width: 50, height: 50)
-    UIGraphicsBeginImageContext(size)
-    
-    let context = UIGraphicsGetCurrentContext()!
-    context.setFillColor(gray: gray, alpha: 1.0)
-    context.fill(.infinite)
-    
-    let img = UIGraphicsGetImageFromCurrentImageContext()!
-    UIGraphicsEndImageContext()
-    return img
-}
 func getTime() -> Double {
     NSTimeIntervalSince1970
 }
 
-func fromBEBytes(u64: ArraySlice<UInt8>) -> UInt64 {
-    assert(u64.count == 8)
-    let data = Data(u64)
-    return UInt64(bigEndian: data.withUnsafeBytes { $0.load(as: UInt64.self) })
-}
-func toBEBytes(u64: UInt64) -> [UInt8] {
-    withUnsafeBytes(of: u64.bigEndian, Array.init)
+func defaultImage(color: CGColor?) -> UIImage {
+    UIGraphicsBeginImageContext(CGSize(width: 50, height: 50))
+    
+    if let color = color {
+        let context = UIGraphicsGetCurrentContext()!
+        context.setFillColor(color)
+        context.fill(.infinite)
+    }
+    
+    let img = UIGraphicsGetImageFromCurrentImageContext()!
+    UIGraphicsEndImageContext()
+    return img
 }
 
 struct ContentView: View {
@@ -44,7 +37,9 @@ struct ContentView: View {
     @State private var passwordExpiry: Double = Double.infinity
     private static let passwordLifecycle: Double = 24 * 60 * 60
     
-    @State private var controlsImage: UIImage = defaultImage(gray: 1.0)
+    @State private var canvasSize: CGSize = CGSize(width: 50, height: 50)
+    @State private var controls = [CustomControl]()
+    private static let maxControls: Int = 1024
     
     @State private var addresstxt: String = "10.0.0.24"
     private static let serverPort: UInt16 = 1976
@@ -57,6 +52,36 @@ struct ContentView: View {
     @State private var runInBackgroundDialog = false
     
     @State private var runInBackground = false
+    
+    private func render(size: CGSize, controls: [CustomControl]) -> UIImage {
+        print("rendering onto size \(size)")
+        canvasSize = size
+        
+        // if the image would be empty it'll crash - avoid that by giving a default image
+        if size.width == 0 || size.height == 0 {
+            return defaultImage(color: nil)
+        }
+        UIGraphicsBeginImageContext(size)
+        
+        let baseFontSize = 30 * size.height / 1200
+        let context = UIGraphicsGetCurrentContext()!
+        for control in controls {
+            control.draw(context: context, baseFontSize: baseFontSize)
+        }
+        
+        let img = UIGraphicsGetImageFromCurrentImageContext()!
+        UIGraphicsEndImageContext()
+        return img
+    }
+    private func tryAddControl(control: CustomControl) -> UInt8 {
+        if controls.count >= Self.maxControls { return 1 }
+        let id = control.getID()
+        for other in controls {
+            if other.getID() == id { return 2 }
+        }
+        controls.append(control)
+        return 0
+    }
     
     private func getPassword() -> UInt64 {
         let time = getTime()
@@ -115,6 +140,39 @@ struct ContentView: View {
             switch content[0] {
             case UInt8(ascii: "A"): send(heading: content[0], sensorData: Sensors.accelerometer.getData())
             case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
+            
+            // clear controls
+            case UInt8(ascii: "C"): if content.count == 9 {
+                controls.removeAll()
+                send(netsbloxify([ content[0] ]))
+            }
+                
+            // add button
+            case UInt8(ascii: "B"): if content.count >= 40 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let width = fromBEBytes(cgf32: content[17..<21]) / 100 * canvasSize.width
+                var height = fromBEBytes(cgf32: content[21..<25]) / 100 * canvasSize.height
+                let color = fromBEBytes(cgcolor: content[25..<29])
+                let textColor = fromBEBytes(cgcolor: content[29..<33])
+                let fontSize = fromBEBytes(cgf32: content[33..<37])
+                var style: ButtonStyle
+                switch content[37] {
+                case 0: style = .Rectangle
+                case 1: style = .Ellipse
+                case 2: height = width; style = .Rectangle
+                case 3: height = width; style = .Ellipse
+                default: style = .Rectangle
+                }
+                let landscape = content[38] != 0
+                let idlen = Int(content[39])
+                let id = [UInt8](content[40..<40+idlen])
+                if let text = String(bytes: content[(40+idlen)...], encoding: .utf8) {
+                    let control = CustomButton(x: x, y: y, width: width, height: height, color: color, textColor: textColor, id: id, text: text, fontSize: fontSize, style: style, landscape: landscape)
+                    send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                }
+            }
+            
             default: print("unrecognized request code: \(content[0])")
             }
         }
@@ -162,24 +220,26 @@ struct ContentView: View {
         }
         macaddr = addr!
         
-        // start up the sensors
+        // start up all the sensors
         Sensors.start()
     }
     var body: some View {
         NavigationView {
             ZStack {
-                Image(uiImage: controlsImage)
-                    .resizable()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { e in
-                                print("click move \(e.location)")
-                            }
-                            .onEnded { e in
-                                print("click end \(e.location)")
-                            }
-                    )
+                GeometryReader { geometry in
+                    Image(uiImage: render(size: geometry.size, controls: controls))
+                        .resizable()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { e in
+                                    print("click move \(e.location)")
+                                }
+                                .onEnded { e in
+                                    print("click end \(e.location)")
+                                }
+                        )
+                }
                 
                 GeometryReader { geometry in
                     HStack {
