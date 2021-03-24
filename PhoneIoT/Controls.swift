@@ -15,12 +15,26 @@ protocol CustomControl: AnyObject {
     func mouseMove(core: CoreController, pos: CGPoint)
     func mouseUp(core: CoreController)
 }
+protocol ToggleLike: CustomControl {
+    func getToggleState() -> Bool
+}
+protocol JoystickLike: CustomControl {
+    func getVector() -> (CGFloat, CGFloat)
+}
+protocol ImageLike: CustomControl {
+    func getImage() -> UIImage
+    func setImage(img: UIImage)
+}
+protocol TextLike: CustomControl {
+    func getText() -> String
+    func setText(txt: String)
+}
 
 enum ButtonStyle {
     case Rectangle
     case Ellipse
 }
-class CustomButton: CustomControl {
+class CustomButton: CustomControl, ToggleLike, TextLike {
     private var rect: CGRect
     private var color: CGColor
     private var textColor: CGColor
@@ -46,22 +60,33 @@ class CustomButton: CustomControl {
         self.landscape = landscape
     }
     
-    func getID() -> ArraySlice<UInt8> { self.id[...] }
+    func getID() -> ArraySlice<UInt8> { id[...] }
+    func fillRegion(context: CGContext, rect: CGRect) {
+        switch style {
+        case .Rectangle: context.fill(rect)
+        case .Ellipse: context.fillEllipse(in: rect)
+        }
+    }
     func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: rect.origin.x, y: rect.origin.y)
+        if landscape { context.rotate(by: .pi / 2) }
+        
+        let mainRect = CGRect(origin: .zero, size: rect.size)
         context.setFillColor(color)
-        context.fill(rect)
+        fillRegion(context: context, rect: mainRect)
+        
         let textRect = CGRect(
-            origin: CGPoint(x: rect.origin.x + Self.padding, y: rect.origin.y + Self.padding),
+            origin: CGPoint(x: Self.padding, y: Self.padding),
             size: CGSize(width: rect.size.width - 2 * Self.padding, height: rect.size.height - 2 * Self.padding))
         
         context.setTextDrawingMode(.fill)
-        context.setFillColor(textColor)
         context.setFontSize(baseFontSize * fontSize)
         let font = UIFont.systemFont(ofSize: baseFontSize * fontSize)
         let par = NSMutableParagraphStyle()
         par.alignment = .center
         par.lineBreakMode = .byWordWrapping
-        let str = NSAttributedString(string: text, attributes: [.font: font, .paragraphStyle: par])
+        let str = NSAttributedString(string: text, attributes: [.font: font, .paragraphStyle: par, .strokeColor: textColor, .foregroundColor: textColor])
         let bound = str.boundingRect(with: textRect.size, options: .usesLineFragmentOrigin, context: nil)
         let pos = CGPoint(x: textRect.origin.x, y: textRect.origin.y + (textRect.size.height - bound.size.height) / 2)
         
@@ -71,19 +96,35 @@ class CustomButton: CustomControl {
         
         if pressed {
             context.setFillColor(Self.pressColor)
-            context.fill(rect)
+            fillRegion(context: context, rect: mainRect)
         }
+        
+        context.restoreGState()
     }
     
     func contains(pos: CGPoint) -> Bool {
-        rect.contains(pos)
+        switch style {
+        case .Rectangle: return rect.contains(pos)
+        case .Ellipse: return ellipseContains(ellipse: landscape ? CGRect(x: rect.origin.x - rect.size.height, y: rect.origin.y, width: rect.size.height, height: rect.size.width) : rect, point: pos)
+        }
     }
     func mouseDown(core: CoreController, pos: CGPoint) {
         pressed = true
-        core.send(core.netsbloxify([ UInt8(ascii: "b") ] + self.id))
+        core.send(core.netsbloxify([ UInt8(ascii: "b") ] + id))
     }
     func mouseMove(core: CoreController, pos: CGPoint) { }
     func mouseUp(core: CoreController) {
         pressed = false
+    }
+    
+    func getToggleState() -> Bool {
+        pressed
+    }
+    
+    func getText() -> String {
+        text
+    }
+    func setText(txt: String) {
+        text = txt
     }
 }
