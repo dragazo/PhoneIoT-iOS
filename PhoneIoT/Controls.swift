@@ -11,9 +11,9 @@ protocol CustomControl: AnyObject {
     func getID() -> ArraySlice<UInt8>
     func draw(context: CGContext, baseFontSize: CGFloat)
     func contains(pos: CGPoint) -> Bool
-    func mouseDown(pos: CGPoint)
-    func mouseMove(pos: CGPoint)
-    func mouseUp()
+    func mouseDown(core: CoreController, pos: CGPoint)
+    func mouseMove(core: CoreController, pos: CGPoint)
+    func mouseUp(core: CoreController)
 }
 
 enum ButtonStyle {
@@ -78,15 +78,12 @@ class CustomButton: CustomControl {
     func contains(pos: CGPoint) -> Bool {
         rect.contains(pos)
     }
-    func mouseDown(pos: CGPoint) {
-        print("mouse down")
+    func mouseDown(core: CoreController, pos: CGPoint) {
         pressed = true
+        core.send(core.netsbloxify([ UInt8(ascii: "b") ] + self.id))
     }
-    func mouseMove(pos: CGPoint) {
-        
-    }
-    func mouseUp() {
-        print("mouse up")
+    func mouseMove(core: CoreController, pos: CGPoint) { }
+    func mouseUp(core: CoreController) {
         pressed = false
     }
 }
