@@ -29,33 +29,17 @@ func defaultImage(color: CGColor?) -> UIImage {
     return img
 }
 
-struct ContentView: View {
-    @State private var showMenu = false
+class ControlsContainer: ObservableObject {
+    var controls = [CustomControl]() // we need to wrap this in a class so we can pas it by reference
+    var canvasSize: CGSize = CGSize(width: 50, height: 50)
     
-    @State private var macaddr: [UInt8] = [UInt8](repeating: 0, count: 6)
-    @State private var password: UInt64 = 0
-    @State private var passwordExpiry: Double = Double.infinity
-    private static let passwordLifecycle: Double = 24 * 60 * 60
+    @Published var updateTrigger = false // value doesn't matter, we just toggle it to invalidate the view
     
-    @State private var canvasSize: CGSize = CGSize(width: 50, height: 50)
-    @State private var controls = [CustomControl]()
     private static let maxControls: Int = 1024
     
-    @State private var addresstxt: String = "10.0.0.24"
-    private static let serverPort: UInt16 = 1976
-    
-    @State private var udp: NWConnection?
-    @State private var hearbeatTimer: Timer?
-    private static let heartbeatInterval: Double = 30
-    
-    @State private var changePasswordDialog = false
-    @State private var runInBackgroundDialog = false
-    
-    @State private var runInBackground = false
-    
-    private func render(size: CGSize, controls: [CustomControl]) -> UIImage {
+    func render(size: CGSize) -> UIImage {
         print("rendering onto size \(size)")
-        canvasSize = size
+        canvasSize = size // keep track of the size of the canvas for other things to use
         
         // if the image would be empty it'll crash - avoid that by giving a default image
         if size.width == 0 || size.height == 0 {
@@ -73,7 +57,7 @@ struct ContentView: View {
         UIGraphicsEndImageContext()
         return img
     }
-    private func tryAddControl(control: CustomControl) -> UInt8 {
+    func tryAddControl(control: CustomControl) -> UInt8 {
         if controls.count >= Self.maxControls { return 1 }
         let id = control.getID()
         for other in controls {
@@ -81,6 +65,156 @@ struct ContentView: View {
         }
         controls.append(control)
         return 0
+    }
+    func getControl(at pos: CGPoint) -> CustomControl? {
+        for control in controls.reversed() {
+            if control.contains(pos: pos) {
+                return control
+            }
+        }
+        return nil
+    }
+}
+class TouchData {
+    var lastPos: CGPoint
+    var control: CustomControl
+    
+    init(pos: CGPoint, control: CustomControl) {
+        self.lastPos = pos
+        self.control = control
+    }
+}
+class TouchTracker: UIView {
+    var activeTouches = [UITouch : TouchData]()
+    var controls: ControlsContainer?
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isMultipleTouchEnabled = true
+    }
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+        isMultipleTouchEnabled = true
+    }
+
+    func isTouchTarget(control: CustomControl) -> Bool {
+        for (_, data) in activeTouches {
+            if data.control === control {
+                return true
+            }
+        }
+        return false
+    }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        var didSomething = false
+        
+        for touch in touches {
+            let pos = touch.location(in: self)
+            //print("\(activeTouches.count) touch start \(pos)")
+            if let control = controls?.getControl(at: pos) {
+                if !isTouchTarget(control: control) { // don't allow multiple touches on same control
+                    activeTouches[touch] = TouchData(pos: pos, control: control)
+                    control.mouseDown(pos: pos)
+                    didSomething = true
+                }
+            }
+        }
+        
+        if didSomething { controls?.updateTrigger.toggle() }
+    }
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        var didSomething = false
+        
+        for touch in touches {
+            let pos = touch.location(in: self)
+            //print("\(activeTouches.count) touch move \(pos)")
+            if let data = activeTouches[touch] {
+                if data.lastPos != pos {
+                    data.lastPos = pos
+                    data.control.mouseMove(pos: pos)
+                    didSomething = true
+                }
+            }
+        }
+        
+        if didSomething { controls?.updateTrigger.toggle() }
+    }
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        var didSomething = false
+        
+        for touch in touches {
+            //print("\(activeTouches.count) touch end")
+            if let data = activeTouches.removeValue(forKey: touch) {
+                data.control.mouseUp()
+                didSomething = true
+            }
+        }
+        
+        if didSomething { controls?.updateTrigger.toggle() }
+    }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        touchesEnded(touches, with: event)
+    }
+}
+struct TouchTrackerView: UIViewRepresentable {
+    @State private var controls: ControlsContainer
+    
+    func makeUIView(context: Context) -> TouchTracker {
+        let t = TouchTracker()
+        t.controls = controls
+        return t
+    }
+    func updateUIView(_ uiView: TouchTracker, context: Context) { }
+    
+    init(controls: ControlsContainer) {
+        self.controls = controls
+    }
+}
+
+struct ContentView: View {
+    @State private var showMenu = false
+    
+    @State private var macaddr: [UInt8] = [UInt8](repeating: 0, count: 6)
+    @State private var password: UInt64 = 0
+    @State private var passwordExpiry: Double = Double.infinity
+    private static let passwordLifecycle: Double = 24 * 60 * 60
+    
+    @ObservedObject private var controls = ControlsContainer()
+    
+    @State private var addresstxt: String = "10.0.0.24"
+    private static let serverPort: UInt16 = 1976
+    
+    @State private var udp: NWConnection?
+    @State private var hearbeatTimer: Timer?
+    private static let heartbeatInterval: Double = 30
+    
+    @State private var changePasswordDialog = false
+    @State private var runInBackgroundDialog = false
+    
+    @State private var runInBackground = false
+    
+    @State private var toastMessages = [(String, TimeInterval)]()
+    @State private var toastRunning = false
+    
+    private func _startToast() {
+        assert(!toastRunning && !toastMessages.isEmpty)
+        toastRunning = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + toastMessages.first!.1) {
+            toastRunning = false
+            toastMessages.remove(at: 0)
+            if !toastMessages.isEmpty {
+                _startToast() // handle any others we might have
+            }
+        }
+    }
+    private func toast(msg: String, duration: TimeInterval) {
+        DispatchQueue.main.async { // done in the same dispatch queue because it's a critical section
+            toastMessages.append((msg, duration))
+            if !toastRunning {
+                _startToast()
+            }
+        }
     }
     
     private func getPassword() -> UInt64 {
@@ -127,8 +261,8 @@ struct ContentView: View {
 
             // check for things that don't need auth
             if content.count == 1 && content[0] == UInt8(ascii: "I") {
-                // connected to server ack
-                print("connection ack from NetsBlox")
+                // connected to server ack - give user a message
+                toast(msg: "Connected to NetsBlox", duration: 3)
                 return
             }
 
@@ -143,16 +277,16 @@ struct ContentView: View {
             
             // clear controls
             case UInt8(ascii: "C"): if content.count == 9 {
-                controls.removeAll()
+                controls.controls.removeAll()
                 send(netsbloxify([ content[0] ]))
             }
-                
+            
             // add button
             case UInt8(ascii: "B"): if content.count >= 40 {
-                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
-                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
-                let width = fromBEBytes(cgf32: content[17..<21]) / 100 * canvasSize.width
-                var height = fromBEBytes(cgf32: content[21..<25]) / 100 * canvasSize.height
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * controls.canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * controls.canvasSize.height
+                let width = fromBEBytes(cgf32: content[17..<21]) / 100 * controls.canvasSize.width
+                var height = fromBEBytes(cgf32: content[21..<25]) / 100 * controls.canvasSize.height
                 let color = fromBEBytes(cgcolor: content[25..<29])
                 let textColor = fromBEBytes(cgcolor: content[29..<33])
                 let fontSize = fromBEBytes(cgf32: content[33..<37])
@@ -169,7 +303,7 @@ struct ContentView: View {
                 let id = [UInt8](content[40..<40+idlen])
                 if let text = String(bytes: content[(40+idlen)...], encoding: .utf8) {
                     let control = CustomButton(x: x, y: y, width: width, height: height, color: color, textColor: textColor, id: id, text: text, fontSize: fontSize, style: style, landscape: landscape)
-                    send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                    send(netsbloxify([ content[0], controls.tryAddControl(control: control) ]))
                 }
             }
             
@@ -227,21 +361,14 @@ struct ContentView: View {
         NavigationView {
             ZStack {
                 GeometryReader { geometry in
-                    Image(uiImage: render(size: geometry.size, controls: controls))
+                    Image(uiImage: controls.render(size: geometry.size))
                         .resizable()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { e in
-                                    print("click move \(e.location)")
-                                }
-                                .onEnded { e in
-                                    print("click end \(e.location)")
-                                }
-                        )
                 }
-                
+                TouchTrackerView(controls: controls) // needs to be in front of the canvas to get touch events
                 GeometryReader { geometry in
+                    let menuWidth = min(max(geometry.size.width * 0.5, 350), geometry.size.width * 0.9)
+                    
                     HStack {
                         VStack {
                             Group {
@@ -249,7 +376,7 @@ struct ContentView: View {
                                 
                                 Image("AppIcon-180")
                                     .resizable()
-                                    .frame(width: geometry.size.width / 5, height: geometry.size.width / 5)
+                                    .frame(width: menuWidth / 4, height: menuWidth / 4)
                                 
                                 Text("PhoneIoT")
                                     .font(.system(size: 24))
@@ -271,7 +398,7 @@ struct ContentView: View {
                                 TextField("Server Address", text: $addresstxt)
                                     .multilineTextAlignment(.center)
                                     .padding(.top, 10)
-                                Divider().frame(width: geometry.size.width * 0.7)
+                                Divider().frame(width: menuWidth * 0.9)
                                 Spacer().frame(height: 20)
                                 
                                 Button("Connect") {
@@ -300,7 +427,7 @@ struct ContentView: View {
                                                 })
                                         }
                                 }
-                                .frame(width: geometry.size.width * 0.6)
+                                .frame(width: menuWidth * 0.7)
                                 Spacer().frame(height: 40)
                                 
                                 Button("New Password") {
@@ -323,14 +450,31 @@ struct ContentView: View {
                             }
                             Spacer()
                         }
-                        .frame(width: geometry.size.width * 0.75, height: geometry.size.height)
+                        .frame(width: menuWidth, height: geometry.size.height)
                         .background(Color.white.edgesIgnoringSafeArea(.bottom))
-                        .offset(x: self.showMenu ? 0 : -UIScreen.main.bounds.width)
+                        .offset(x: showMenu ? 0 : -UIScreen.main.bounds.width)
                         .animation(.interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.6))
                         
                         Spacer()
                     }
-                    .background(Color.black.opacity(self.showMenu ? 0.5 : 0).edgesIgnoringSafeArea(.bottom))
+                    .background(Color.black.opacity(showMenu ? 0.5 : 0).edgesIgnoringSafeArea(.bottom))
+                }
+                GeometryReader { geometry in // this needs to be on top of everything
+                    HStack {
+                        Spacer()
+                        VStack {
+                            Spacer()
+                            Text(toastMessages.first?.0 ?? "")
+                                .padding(EdgeInsets(top: 8, leading: 15, bottom: 8, trailing: 15))
+                                .background(Color(white: 0.15, opacity: 0.7))
+                                .cornerRadius(10)
+                                .foregroundColor(Color.white)
+                                .offset(y: toastMessages.isEmpty ? UIScreen.main.bounds.height : 0)
+                                .animation(.interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.6))
+                            Spacer().frame(height: geometry.size.height * 0.05)
+                        }
+                        Spacer()
+                    }
                 }
             }.navigationBarTitle("PhoneIoT", displayMode: .inline)
             .navigationBarItems(leading:
@@ -346,6 +490,7 @@ struct ContentView: View {
                 })
             )
         }
+        .navigationViewStyle(StackNavigationViewStyle())
         .onAppear(perform: initialize)
     }
 }

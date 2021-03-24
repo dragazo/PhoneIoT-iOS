@@ -7,9 +7,13 @@
 
 import SwiftUI
 
-protocol CustomControl {
+protocol CustomControl: AnyObject {
     func getID() -> ArraySlice<UInt8>
     func draw(context: CGContext, baseFontSize: CGFloat)
+    func contains(pos: CGPoint) -> Bool
+    func mouseDown(pos: CGPoint)
+    func mouseMove(pos: CGPoint)
+    func mouseUp()
 }
 
 enum ButtonStyle {
@@ -26,7 +30,10 @@ class CustomButton: CustomControl {
     private var style: ButtonStyle
     private var landscape: Bool
     
+    private var pressed = false
+    
     private static let padding: CGFloat = 5
+    private static let pressColor = CGColor(gray: 1.0, alpha: 100.0 / 255)
     
     init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, color: CGColor, textColor: CGColor, id: [UInt8], text: String, fontSize: CGFloat, style: ButtonStyle, landscape: Bool) {
         self.rect = CGRect(origin: CGPoint(x: x, y: y), size: CGSize(width: width, height: height))
@@ -61,5 +68,25 @@ class CustomButton: CustomControl {
         UIGraphicsPushContext(context)
         str.draw(with: CGRect(origin: pos, size: textRect.size), options: .usesLineFragmentOrigin, context: nil)
         UIGraphicsPopContext()
+        
+        if pressed {
+            context.setFillColor(Self.pressColor)
+            context.fill(rect)
+        }
+    }
+    
+    func contains(pos: CGPoint) -> Bool {
+        rect.contains(pos)
+    }
+    func mouseDown(pos: CGPoint) {
+        print("mouse down")
+        pressed = true
+    }
+    func mouseMove(pos: CGPoint) {
+        
+    }
+    func mouseUp() {
+        print("mouse up")
+        pressed = false
     }
 }
