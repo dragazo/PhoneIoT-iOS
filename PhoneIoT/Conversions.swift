@@ -54,3 +54,10 @@ func fromBEBytes(cgcolor: ArraySlice<UInt8>) -> CGColor {
         blue: CGFloat(raw & 0xff) / 255,
         alpha: CGFloat(raw >> 24) / 255)
 }
+func fromBEBytes(align: UInt8) -> NSTextAlignment {
+    switch align {
+    case 1: return .center
+    case 2: return .right
+    default: return .left
+    }
+}

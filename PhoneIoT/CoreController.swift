@@ -86,6 +86,15 @@ class CoreController: ObservableObject {
         for control in controls {
             control.draw(context: context, baseFontSize: baseFontSize)
         }
+        if controls.isEmpty {
+            let str = NSAttributedString(string: "Add controls through NetsBlox!", attributes: [.font: UIFont.systemFont(ofSize: baseFontSize)])
+            let bound = str.boundingRect(with: CGSize(width: CGFloat.infinity, height: .infinity), options: .usesLineFragmentOrigin, context: nil)
+            let pos = CGPoint(x: (size.width - bound.size.width) / 2, y: (size.height - bound.size.height) / 2)
+            
+            UIGraphicsPushContext(context)
+            str.draw(with: CGRect(origin: pos, size: bound.size), options: .usesLineFragmentOrigin, context: nil)
+            UIGraphicsPopContext()
+        }
         
         let img = UIGraphicsGetImageFromCurrentImageContext()!
         UIGraphicsEndImageContext()
@@ -122,10 +131,10 @@ class CoreController: ObservableObject {
         }
         return nil
     }
-    func getControl(id: ArraySlice<UInt8>, filter predicate: (CustomControl) -> Bool) -> CustomControl? {
+    func getControl(id: ArraySlice<UInt8>) -> CustomControl? {
         for control in controls {
             if control.getID() == id {
-                return predicate(control) ? control : nil
+                return control
             }
         }
         return nil
@@ -206,12 +215,72 @@ class CoreController: ObservableObject {
 
             switch content[0] {
             case UInt8(ascii: "A"): send(heading: content[0], sensorData: Sensors.accelerometer.getData())
+                
+            // authenticate
             case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
             
             // clear controls
             case UInt8(ascii: "C"): if content.count == 9 {
                 removeAllControls()
                 send(netsbloxify([ content[0] ]))
+            }
+            
+            // remove control
+            case UInt8(ascii: "c"): if content.count >= 9 {
+                let id = content[9...]
+                for (i, control) in controls.enumerated() {
+                    if control.getID() == id {
+                        controls.remove(at: i)
+                        triggerUpdate()
+                        break
+                    }
+                }
+                send(netsbloxify([ content[0] ]))
+            }
+            
+            // set text
+            case UInt8(ascii: "H"): if content.count >= 10 {
+                let idlen = Int(content[9])
+                if content.count >= 10 + idlen {
+                    if let control = getControl(id: content[10..<10+idlen]) as? TextLike {
+                        if let txt = String(bytes: content[(10+idlen)...], encoding: .utf8) {
+                            control.setText(txt: txt)
+                            triggerUpdate()
+                            send(netsbloxify([ content[0], 0 ]))
+                        }
+                    }
+                    else {
+                        send(netsbloxify([ content[0], 3 ]))
+                    }
+                }
+            }
+            
+            // get text
+            case UInt8(ascii: "h"): if content.count >= 9 {
+                if let control = getControl(id: content[9...]) as? TextLike {
+                    send(netsbloxify([ content[0], 0 ] + control.getText().utf8))
+                }
+                else {
+                    send(netsbloxify([ content[0] ]))
+                }
+            }
+            
+            // add label
+            case UInt8(ascii: "g"): if content.count >= 28 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let textColor = fromBEBytes(cgcolor: content[17..<21])
+                let fontSize = fromBEBytes(cgf32: content[21..<25])
+                let align = fromBEBytes(align: content[25])
+                let landscape = content[26] != 0
+                let idlen = Int(content[27])
+                if content.count >= 28 + idlen {
+                    let id = [UInt8](content[28..<28+idlen])
+                    if let text = String(bytes: content[(28+idlen)...], encoding: .utf8) {
+                        let control = CustomLabel(x: x, y: y, textColor: textColor, id: id, text: text, fontSize: fontSize, align: align, landscape: landscape)
+                        send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                    }
+                }
             }
             
             // add button
@@ -233,10 +302,12 @@ class CoreController: ObservableObject {
                 }
                 let landscape = content[38] != 0
                 let idlen = Int(content[39])
-                let id = [UInt8](content[40..<40+idlen])
-                if let text = String(bytes: content[(40+idlen)...], encoding: .utf8) {
-                    let control = CustomButton(x: x, y: y, width: width, height: height, color: color, textColor: textColor, id: id, text: text, fontSize: fontSize, style: style, landscape: landscape)
-                    send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                if content.count >= 40 + idlen {
+                    let id = [UInt8](content[40..<40+idlen])
+                    if let text = String(bytes: content[(40+idlen)...], encoding: .utf8) {
+                        let control = CustomButton(x: x, y: y, width: width, height: height, color: color, textColor: textColor, id: id, text: text, fontSize: fontSize, style: style, landscape: landscape)
+                        send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                    }
                 }
             }
             

@@ -86,7 +86,6 @@ class TouchTracker: UIView {
         var didSomething = false
         
         for touch in touches {
-            //print("\(activeTouches.count) touch end")
             if let data = activeTouches.removeValue(forKey: touch) {
                 data.control.mouseUp(core: core)
                 didSomething = true

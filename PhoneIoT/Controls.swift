@@ -30,6 +30,66 @@ protocol TextLike: CustomControl {
     func setText(txt: String)
 }
 
+class CustomLabel: CustomControl, TextLike {
+    private var pos: CGPoint
+    private var textColor: CGColor
+    private var id: [UInt8]
+    private var text: String
+    private var fontSize: CGFloat
+    private var align: NSTextAlignment
+    private var landscape: Bool
+    
+    init(x: CGFloat, y: CGFloat, textColor: CGColor, id: [UInt8], text: String, fontSize: CGFloat, align: NSTextAlignment, landscape: Bool) {
+        self.pos = CGPoint(x: x, y: y)
+        self.textColor = textColor
+        self.id = id
+        self.text = text
+        self.fontSize = fontSize
+        self.align = align
+        self.landscape = landscape
+    }
+    
+    func getID() -> ArraySlice<UInt8> {
+        id[...]
+    }
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: pos.x, y: pos.y)
+        if landscape { context.rotate(by: .pi / 2) }
+        
+        let font = UIFont.systemFont(ofSize: baseFontSize * fontSize)
+        let par = NSMutableParagraphStyle()
+        par.alignment = .center
+        let str = NSAttributedString(string: text, attributes: [.font: font, .paragraphStyle: par, .strokeColor: textColor, .foregroundColor: textColor])
+        let bound = str.boundingRect(with: CGSize(width: CGFloat.infinity, height: .infinity), options: .usesLineFragmentOrigin, context: nil)
+        
+        var p: CGPoint = .zero
+        switch align {
+        case .right: p.x -= bound.width
+        case .center: p.x -= bound.width / 2
+        default: break
+        }
+        
+        UIGraphicsPushContext(context)
+        str.draw(with: CGRect(origin: p, size: bound.size), options: .usesLineFragmentOrigin, context: nil)
+        UIGraphicsPopContext()
+        
+        context.restoreGState()
+    }
+    
+    func contains(pos: CGPoint) -> Bool { false }
+    func mouseDown(core: CoreController, pos: CGPoint) { }
+    func mouseMove(core: CoreController, pos: CGPoint) { }
+    func mouseUp(core: CoreController) { }
+    
+    func getText() -> String {
+        text
+    }
+    func setText(txt: String) {
+        text = txt
+    }
+}
+
 enum ButtonStyle {
     case Rectangle
     case Ellipse
@@ -80,8 +140,6 @@ class CustomButton: CustomControl, ToggleLike, TextLike {
             origin: CGPoint(x: Self.padding, y: Self.padding),
             size: CGSize(width: rect.size.width - 2 * Self.padding, height: rect.size.height - 2 * Self.padding))
         
-        context.setTextDrawingMode(.fill)
-        context.setFontSize(baseFontSize * fontSize)
         let font = UIFont.systemFont(ofSize: baseFontSize * fontSize)
         let par = NSMutableParagraphStyle()
         par.alignment = .center
