@@ -22,13 +22,52 @@ protocol JoystickLike: CustomControl {
     func getVector() -> (CGFloat, CGFloat)
 }
 protocol ImageLike: CustomControl {
-    func getImage() -> UIImage
-    func setImage(img: UIImage)
+    func getImage() -> CGImage
+    func setImage(_ img: CGImage)
 }
 protocol TextLike: CustomControl {
     func getText() -> String
-    func setText(txt: String)
+    func setText(_ txt: String)
 }
+
+// ----------------------------------------------------------------------------------
+
+enum FitType {
+    case stretch
+    case fit
+    case zoom
+}
+func center(img: CGImage, in rect: CGRect, scale: CGFloat) -> CGRect {
+    let oldsize = CGSize(width: img.width, height: img.height)
+    let newsize = CGSize(width: oldsize.width * scale, height: oldsize.height * scale)
+    return CGRect(
+        x: rect.origin.x + (rect.width - newsize.width) / 2,
+        y: rect.origin.y + (rect.height - newsize.height) / 2,
+        width: newsize.width,
+        height: newsize.height
+    )
+}
+func fitRect(for img: CGImage, in rect: CGRect, by fit: FitType) -> CGRect {
+    switch fit {
+    case .stretch: return rect
+    case .fit: return center(img: img, in: rect, scale: min(rect.width / CGFloat(img.width), rect.height / CGFloat(img.height)))
+    case .zoom: return center(img: img, in: rect, scale: max(rect.width / CGFloat(img.width), rect.height / CGFloat(img.height)))
+    }
+}
+
+// this corrects a weird issue where CGImages seem to be drawn upside down
+func drawImage(context: CGContext, img: CGImage, in rect: CGRect, clip: CGRect) {
+    context.saveGState()
+    
+    context.clip(to: clip)
+    context.translateBy(x: rect.origin.x, y: rect.origin.y + rect.height)
+    context.scaleBy(x: 1, y: -1)
+    context.draw(img, in: CGRect(origin: .zero, size: rect.size))
+    
+    context.restoreGState()
+}
+
+// ------------------------------------------------------------------------------------
 
 class CustomLabel: CustomControl, TextLike {
     private var pos: CGPoint
@@ -85,7 +124,7 @@ class CustomLabel: CustomControl, TextLike {
     func getText() -> String {
         text
     }
-    func setText(txt: String) {
+    func setText(_ txt: String) {
         text = txt
     }
 }
@@ -161,9 +200,11 @@ class CustomButton: CustomControl, ToggleLike, TextLike {
     }
     
     func contains(pos: CGPoint) -> Bool {
+        let r = landscape ? rotate(rect: rect) : rect
+        
         switch style {
-        case .Rectangle: return rect.contains(pos)
-        case .Ellipse: return ellipseContains(ellipse: landscape ? CGRect(x: rect.origin.x - rect.size.height, y: rect.origin.y, width: rect.size.height, height: rect.size.width) : rect, point: pos)
+        case .Rectangle: return r.contains(pos)
+        case .Ellipse: return ellipseContains(ellipse: r, point: pos)
         }
     }
     func mouseDown(core: CoreController, pos: CGPoint) {
@@ -182,7 +223,65 @@ class CustomButton: CustomControl, ToggleLike, TextLike {
     func getText() -> String {
         text
     }
-    func setText(txt: String) {
+    func setText(_ txt: String) {
         text = txt
+    }
+}
+
+class CustomImageDisplay: CustomControl, ImageLike {
+    private var rect: CGRect
+    private var id: [UInt8]
+    private var img: CGImage
+    private var readonly: Bool
+    private var landscape: Bool
+    private var fit: FitType
+
+    private static let fillColor = CGColor(gray: 0, alpha: 1)
+    private static let strokeColor = fillColor
+    private static let strokeWidth: CGFloat = 2
+
+    init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, id: [UInt8], readonly: Bool, landscape: Bool, fit: FitType) {
+        self.rect = CGRect(x: x, y: y, width: width, height: height)
+        self.id = id
+        self.img = cgImage(uiImage: defaultImage(color: Self.fillColor))!
+        self.readonly = readonly
+        self.landscape = landscape
+        self.fit = fit
+    }
+
+    func getID() -> ArraySlice<UInt8> {
+        self.id[...]
+    }
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: rect.origin.x, y: rect.origin.y)
+        if landscape { context.rotate(by: .pi / 2) }
+
+        let mainRect = CGRect(origin: .zero, size: rect.size)
+        context.setFillColor(Self.fillColor)
+        context.fill(mainRect)
+        
+        let imgRect = fitRect(for: img, in: mainRect, by: fit)
+        drawImage(context: context, img: img, in: imgRect, clip: mainRect)
+
+        context.setStrokeColor(Self.strokeColor)
+        context.stroke(mainRect, width: Self.strokeWidth)
+
+        context.restoreGState()
+    }
+
+    func contains(pos: CGPoint) -> Bool {
+        let r = landscape ? rotate(rect: rect) : rect
+        return r.contains(pos)
+    }
+    func mouseDown(core: CoreController, pos: CGPoint) { }
+    func mouseMove(core: CoreController, pos: CGPoint) { }
+    func mouseUp(core: CoreController) { }
+    
+    func getImage() -> CGImage {
+        img
+    }
+    func setImage(_ img: CGImage) {
+        self.img = img
     }
 }

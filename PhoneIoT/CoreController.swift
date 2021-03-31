@@ -37,6 +37,10 @@ func defaultImage(color: CGColor?) -> UIImage {
     return img
 }
 
+func rotate(rect: CGRect) -> CGRect {
+    CGRect(x: rect.origin.x - rect.size.height, y: rect.origin.y, width: rect.size.height, height: rect.size.width)
+}
+
 class CoreController: ObservableObject {
     @Published var showMenu = false
     
@@ -214,7 +218,19 @@ class CoreController: ObservableObject {
             }
 
             switch content[0] {
-            case UInt8(ascii: "A"): send(heading: content[0], sensorData: Sensors.accelerometer.getData())
+            case UInt8(ascii: "A"): send(heading: content[0], sensorData: Sensors.accelerometer)
+            case UInt8(ascii: "G"): send(heading: content[0], sensorData: Sensors.gravity)
+            case UInt8(ascii: "L"): send(heading: content[0], sensorData: Sensors.linearAcceleration)
+            case UInt8(ascii: "Y"): send(heading: content[0], sensorData: Sensors.gyroscope)
+            case UInt8(ascii: "R"): send(heading: content[0], sensorData: Sensors.rotationVector)
+            case UInt8(ascii: "r"): send(heading: content[0], sensorData: nil) // game rotation vector
+            case UInt8(ascii: "M"): send(heading: content[0], sensorData: Sensors.magnetometer)
+            case UInt8(ascii: "m"): send(heading: content[0], sensorData: nil) // sound
+            case UInt8(ascii: "P"): send(heading: content[0], sensorData: nil) // proximity
+            case UInt8(ascii: "S"): send(heading: content[0], sensorData: nil) // step counter
+            case UInt8(ascii: "l"): send(heading: content[0], sensorData: nil) // light level
+            case UInt8(ascii: "X"): send(heading: content[0], sensorData: nil) // location
+            case UInt8(ascii: "O"): send(heading: content[0], sensorData: nil) // orientation
                 
             // authenticate
             case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
@@ -244,7 +260,7 @@ class CoreController: ObservableObject {
                 if content.count >= 10 + idlen {
                     if let control = getControl(id: content[10..<10+idlen]) as? TextLike {
                         if let txt = String(bytes: content[(10+idlen)...], encoding: .utf8) {
-                            control.setText(txt: txt)
+                            control.setText(txt)
                             triggerUpdate()
                             send(netsbloxify([ content[0], 0 ]))
                         }
@@ -259,6 +275,37 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "h"): if content.count >= 9 {
                 if let control = getControl(id: content[9...]) as? TextLike {
                     send(netsbloxify([ content[0], 0 ] + control.getText().utf8))
+                }
+                else {
+                    send(netsbloxify([ content[0] ]))
+                }
+            }
+            
+            // set image
+            case UInt8(ascii: "i"): if content.count >= 10 {
+                let idlen = Int(content[9])
+                if content.count >= 10 + idlen {
+                    if let target = getControl(id: content[10..<10+idlen]) as? ImageLike {
+                        if let img = uiImage(jpeg: content[(10+idlen)...]) {
+                            if let final = cgImage(uiImage: img) {
+                                target.setImage(final)
+                                triggerUpdate()
+                                send(netsbloxify([ content[0], 0 ]))
+                            }
+                        }
+                    }
+                    else {
+                        send(netsbloxify([ content[0], 3 ]))
+                    }
+                }
+            }
+            
+            // get image
+            case UInt8(ascii: "u"): if content.count >= 9 {
+                if let target = getControl(id: content[9...]) as? ImageLike {
+                    if let data = jpeg(uiImage: uiImage(cgImage: target.getImage())) {
+                        send(netsbloxify([ content[0] ] + data))
+                    }
                 }
                 else {
                     send(netsbloxify([ content[0] ]))
@@ -309,6 +356,21 @@ class CoreController: ObservableObject {
                         send(netsbloxify([ content[0], tryAddControl(control: control) ]))
                     }
                 }
+            }
+            
+            // add image display
+            case UInt8(ascii: "U"): if content.count >= 28 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let width = fromBEBytes(cgf32: content[17..<21]) / 100 * canvasSize.width
+                let height = fromBEBytes(cgf32: content[21..<25]) / 100 * canvasSize.height
+                let readonly = content[25] != 0
+                let landscape = content[26] != 0
+                let fit = fromBEBytes(imgfit: content[27])
+                let id = [UInt8](content[28...])
+                
+                let control = CustomImageDisplay(x: x, y: y, width: width, height: height, id: id, readonly: readonly, landscape: landscape, fit: fit)
+                send(netsbloxify([ content[0], tryAddControl(control: control) ]))
             }
             
             default: print("unrecognized request code: \(content[0])")

@@ -7,48 +7,95 @@
 
 import CoreMotion
 
-protocol BasicSensor {
-    // returns nil if not available, otherwise (potentially computes) and returns the data
-    func getData() -> [Double]?
-}
-let sensorUpdateInterval: Double = 1.0 / 10.0
-
-let motion = CMMotionManager()
-
-class AccelerometerSensor: BasicSensor {
-    var data: [Double]?
-    func getData() -> [Double]? {
-        data
+class Sensors {
+    private static let motion = CMMotionManager()
+    private static let sensorUpdateInterval: Double = 1.0 / 10.0
+    private static var updateTimer: Timer?
+    
+    private static let accelerometerScale: Double = -9.81
+    
+    static var accelerometer: [Double]?
+    static var linearAcceleration: [Double]?
+    static var gravity: [Double]?
+    static var magnetometer: [Double]?
+    static var gyroscope: [Double]?
+    static var rotationVector: [Double]?
+    
+    private static func update(accelerometer data: CMAcceleration) {
+        accelerometer = [accelerometerScale * data.x, accelerometerScale * data.y, accelerometerScale * data.z]
+    }
+    private static func update(linearAcceleration data: CMAcceleration) {
+        linearAcceleration = [accelerometerScale * data.x, accelerometerScale * data.y, accelerometerScale * data.z]
+    }
+    private static func update(gravity data: CMAcceleration) {
+        gravity = [accelerometerScale * data.x, accelerometerScale * data.y, accelerometerScale * data.z]
+    }
+    private static func update(magnetometer data: CMMagneticField) {
+        magnetometer = [data.x, data.y, data.z]
+    }
+    private static func update(gyroscope data: CMRotationRate) {
+        gyroscope = [data.x, data.y, data.z]
+    }
+    private static func update(rotationVector data: CMAttitude) {
+        rotationVector = [data.pitch, data.roll, data.yaw, 1]
     }
     
-    private init() {}
-    static let global = AccelerometerSensor()
-    
-    func start() {
-        if motion.isAccelerometerAvailable && !motion.isAccelerometerActive {
-            motion.accelerometerUpdateInterval = sensorUpdateInterval
-            motion.startAccelerometerUpdates()
+    private static func add(_ a: [Double], _ b: [Double]) -> [Double] {
+        assert(a.count == b.count)
+        var res = [Double]()
+        for i in 0..<a.count {
+            res.append(a[i] + b[i])
         }
+        return res
     }
-}
-
-struct Sensors {
-    static let accelerometer = AccelerometerSensor.global
-    
-    static var updateTimer: Timer?
     
     static func start() {
         if updateTimer != nil { return }
-        
-        accelerometer.start()
-        
         updateTimer = Timer.scheduledTimer(withTimeInterval: sensorUpdateInterval, repeats: true) { t in
-            if let data = motion.accelerometerData {
-                let x = data.acceleration.x
-                let y = data.acceleration.y
-                let z = data.acceleration.z
-                Sensors.accelerometer.data = [x, y, z]
+            if motion.isDeviceMotionActive {
+                if let data = motion.deviceMotion {
+                    update(linearAcceleration: data.userAcceleration)
+                    update(gravity: data.gravity)
+                    accelerometer = add(linearAcceleration!, gravity!) // reconstruct accel from linear and gravity
+                    update(gyroscope: data.rotationRate)
+                    update(magnetometer: data.magneticField.field)
+                    update(rotationVector: data.attitude)
+                }
+            }
+            else {
+                if let data = motion.accelerometerData { update(accelerometer: data.acceleration) }
+                if let data = motion.gyroData { update(gyroscope: data.rotationRate) }
+                if let data = motion.magnetometerData { update(magnetometer: data.magneticField) }
             }
         }
+        
+        if motion.isDeviceMotionAvailable { // this is the cool one if it's available; has everything and does sensor fusion
+            motion.deviceMotionUpdateInterval = sensorUpdateInterval
+            motion.startDeviceMotionUpdates()
+        }
+        else {
+            if motion.isAccelerometerAvailable {
+                motion.accelerometerUpdateInterval = sensorUpdateInterval
+                motion.startAccelerometerUpdates()
+            }
+            if motion.isGyroAvailable {
+                motion.gyroUpdateInterval = sensorUpdateInterval
+                motion.startGyroUpdates()
+            }
+            if motion.isMagnetometerAvailable {
+                motion.magnetometerUpdateInterval = sensorUpdateInterval
+                motion.startMagnetometerUpdates()
+            }
+        }
+    }
+    static func stop() {
+        if updateTimer == nil { return }
+        updateTimer!.invalidate();
+        updateTimer = nil
+        
+        if motion.isDeviceMotionActive { motion.stopDeviceMotionUpdates() }
+        if motion.isAccelerometerActive { motion.stopAccelerometerUpdates() }
+        if motion.isGyroAvailable { motion.stopGyroUpdates() }
+        if motion.isMagnetometerActive { motion.stopMagnetometerUpdates() }
     }
 }

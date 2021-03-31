@@ -61,3 +61,53 @@ func fromBEBytes(align: UInt8) -> NSTextAlignment {
     default: return .left
     }
 }
+func fromBEBytes(imgfit: UInt8) -> FitType {
+    switch imgfit {
+    case 1: return .zoom
+    case 2: return .stretch
+    default: return .fit
+    }
+}
+
+func uiImage(cgImage: CGImage) -> UIImage {
+    UIImage(cgImage: cgImage)
+}
+func cgImage(uiImage: UIImage) -> CGImage? {
+    if let ci = CIImage(image: uiImage) {
+        return CIContext(options: nil).createCGImage(ci, from: ci.extent)
+    }
+    return nil
+}
+
+let maxJpegBytes = 4 * 64 * 1024
+func scaleImageForUDP(img: CGImage) -> UIImage {
+    let rawBytes = 4 * img.width * img.height
+    if rawBytes < maxJpegBytes { // if it's already small enough, just send it as-is
+        return uiImage(cgImage: img)
+    }
+    let mult = sqrt(Double(maxJpegBytes) / Double(rawBytes))
+    let newSize = CGSize(width: Int(Double(img.width) * mult), height: Int(Double(img.height) * mult))
+    
+    print("resized image: \(img.width)x\(img.height) -> \(newSize.width)x\(newSize.height) (\(4 * newSize.width * newSize.height) argb8 bytes)")
+    
+    UIGraphicsBeginImageContext(newSize)
+    let context = UIGraphicsGetCurrentContext()!
+    
+    context.draw(img, in: CGRect(origin: .zero, size: newSize))
+    
+    let img = UIGraphicsGetImageFromCurrentImageContext()!
+    UIGraphicsEndImageContext()
+    return img
+}
+
+func uiImage(jpeg: ArraySlice<UInt8>) -> UIImage? {
+    UIImage(data: Data(jpeg))
+}
+func jpeg(uiImage: UIImage) -> [UInt8]? {
+    guard let data = uiImage.jpegData(compressionQuality: 0.7) else { return nil }
+    print("encoded \(uiImage.size) img in \(data.count) bytes")
+    
+    var buf = [UInt8](repeating: 0, count: data.count)
+    data.copyBytes(to: &buf, count: data.count)
+    return buf
+}
