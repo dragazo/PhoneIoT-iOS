@@ -63,6 +63,13 @@ class Sensors {
     static var gyroscope: [Double]?
     static var rotationVector: [Double]?
     
+    // these aren't implemented yet
+    static var gameRotationVector: [Double]?
+    static var proximity: [Double]?
+    static var stepCounter: [Double]?
+    static var light: [Double]?
+    static var orientation: [Double]?
+    
     static var location: [Double]? // lat, long, bearing, altitude
     
     private static func update(accelerometer data: CMAcceleration) {

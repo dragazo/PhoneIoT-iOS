@@ -65,6 +65,9 @@ class CoreController: ObservableObject {
     var heatbeatTimer: Timer?
     static let heartbeatInterval: Double = 30
     
+    var sensorUpdateTimer: Timer?
+    var sensorUpdateCount: UInt32 = 0
+    
     var controls = [CustomControl]() // we need to wrap this in a class so we can pas it by reference
     var canvasSize: CGSize = CGSize(width: 50, height: 50)
     static let maxControls: Int = 1024
@@ -197,6 +200,45 @@ class CoreController: ObservableObject {
         }
         send(netsbloxify(msg[...]))
     }
+    func getSensorPacket(prefix: [UInt8]) -> [UInt8] {
+        var res = prefix + toBEBytes(u32: sensorUpdateCount)
+        sensorUpdateCount += 1
+        
+        let sensors = [
+            Sensors.accelerometer, Sensors.gravity, Sensors.linearAcceleration, Sensors.gyroscope,
+            Sensors.rotationVector, Sensors.gameRotationVector, Sensors.magnetometer,
+            Sensors.proximity, Sensors.proximity, Sensors.stepCounter, Sensors.light,
+            Sensors.location, Sensors.orientation,
+        ]
+        for sensor in sensors {
+            if let data = sensor {
+                assert(data.count <= 127)
+                res.append(UInt8(data.count))
+                for val in data {
+                    res.append(contentsOf: toBEBytes(f64: val))
+                }
+            }
+            else {
+                res.append(0)
+            }
+        }
+        
+        return res
+    }
+    func setSensorUpdatePeriods(_ periods: [Int]) {
+        DispatchQueue.main.async { // timers have to be spawned in a thread with a run loop
+            self.sensorUpdateTimer?.invalidate()
+            
+            if let interval = periods.min() { // interval is in ms - we just match the smallest (finest) value
+                self.sensorUpdateTimer = Timer.scheduledTimer(withTimeInterval: Double(interval) / 1000, repeats: true) { t in
+                    self.send(self.netsbloxify(self.getSensorPacket(prefix: [ UInt8(ascii: "Q") ])[...]))
+                }
+            }
+            else {
+                self.sensorUpdateTimer = nil
+            }
+        }
+    }
     func messageHandler(msg: Data?, context: NWConnection.ContentContext?, isComplete: Bool, error: NWError?) {
         // go ahead and re-register ourselves to receive the next packet
         udp?.receiveMessage(completion: messageHandler)
@@ -235,6 +277,16 @@ class CoreController: ObservableObject {
             // authenticate
             case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))
             
+            // set sensor packet update intervals
+            case UInt8(ascii: "p"): if content.count >= 9 && (content.count - 9) % 4 == 0 {
+                var vals = [Int]()
+                for i in 0..<((content.count - 9) / 4) {
+                    vals.append(Int(fromBEBytes(u32: content[(9 + i * 4)..<(9 + (i + 1) * 4)])))
+                }
+                setSensorUpdatePeriods(vals)
+                send(netsbloxify([ content[0] ]))
+            }
+                
             // clear controls
             case UInt8(ascii: "C"): if content.count == 9 {
                 removeAllControls()
