@@ -229,7 +229,7 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "P"): send(heading: content[0], sensorData: nil) // proximity
             case UInt8(ascii: "S"): send(heading: content[0], sensorData: nil) // step counter
             case UInt8(ascii: "l"): send(heading: content[0], sensorData: nil) // light level
-            case UInt8(ascii: "X"): send(heading: content[0], sensorData: nil) // location
+            case UInt8(ascii: "X"): send(heading: content[0], sensorData: Sensors.location)
             case UInt8(ascii: "O"): send(heading: content[0], sensorData: nil) // orientation
                 
             // authenticate

@@ -6,9 +6,51 @@
 //
 
 import CoreMotion
+import CoreLocation
+
+private class LocationManager: NSObject, CLLocationManagerDelegate {
+    private let manager: CLLocationManager
+        
+    static let global = LocationManager()
+    private init(manager: CLLocationManager = CLLocationManager()) {
+        self.manager = manager
+        super.init()
+    }
+    
+    func start() {
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        
+        manager.requestWhenInUseAuthorization()
+        manager.requestAlwaysAuthorization()
+        
+        manager.startUpdatingLocation()
+    }
+    func stop() {
+        manager.stopUpdatingLocation()
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let loc = locations.last {
+            Sensors.location = [loc.coordinate.latitude, loc.coordinate.longitude, loc.course, loc.altitude]
+        }
+    }
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
+            start()
+        }
+    }
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        if let error = error as? CLError, error.code == .denied {
+            print("location permission denied")
+            stop()
+        }
+    }
+}
 
 class Sensors {
     private static let motion = CMMotionManager()
+    
     private static let sensorUpdateInterval: Double = 1.0 / 10.0
     private static var updateTimer: Timer?
     
@@ -20,6 +62,8 @@ class Sensors {
     static var magnetometer: [Double]?
     static var gyroscope: [Double]?
     static var rotationVector: [Double]?
+    
+    static var location: [Double]? // lat, long, bearing, altitude
     
     private static func update(accelerometer data: CMAcceleration) {
         accelerometer = [accelerometerScale * data.x, accelerometerScale * data.y, accelerometerScale * data.z]
@@ -87,6 +131,8 @@ class Sensors {
                 motion.startMagnetometerUpdates()
             }
         }
+        
+        LocationManager.global.start()
     }
     static func stop() {
         if updateTimer == nil { return }
@@ -97,5 +143,7 @@ class Sensors {
         if motion.isAccelerometerActive { motion.stopAccelerometerUpdates() }
         if motion.isGyroAvailable { motion.stopGyroUpdates() }
         if motion.isMagnetometerActive { motion.stopMagnetometerUpdates() }
+        
+        LocationManager.global.stop()
     }
 }

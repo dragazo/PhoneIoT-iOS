@@ -37,6 +37,12 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need permission to make location accessible from NetsBlox.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>We need background location data for the run in background option.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need background location data for the run in background option.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
