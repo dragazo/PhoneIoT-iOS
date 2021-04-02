@@ -410,6 +410,28 @@ class CoreController: ObservableObject {
                 }
             }
             
+            // add text field
+            case UInt8(ascii: "T"): if content.count >= 41 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let width = fromBEBytes(cgf32: content[17..<21]) / 100 * canvasSize.width
+                let height = fromBEBytes(cgf32: content[21..<25]) / 100 * canvasSize.height
+                let color = fromBEBytes(cgcolor: content[25..<29])
+                let textColor = fromBEBytes(cgcolor: content[29..<33])
+                let fontSize = fromBEBytes(cgf32: content[33..<37])
+                let align = fromBEBytes(align: content[37])
+                let readonly = content[38] != 0
+                let landscape = content[39] != 0
+                let idlen = Int(content[40])
+                if content.count >= 41 + idlen {
+                    let id = [UInt8](content[41..<(41+idlen)])
+                    if let text = String(bytes: content[(41+idlen)...], encoding: .utf8) {
+                        let control = CustomTextField(x: x, y: y, width: width, height: height, color: color, textColor: textColor, id: id, text: text, readonly: readonly, fontSize: fontSize, align: align, landscape: landscape)
+                        send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                    }
+                }
+            }
+            
             // add image display
             case UInt8(ascii: "U"): if content.count >= 28 {
                 let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width

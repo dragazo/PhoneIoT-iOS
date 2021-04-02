@@ -67,6 +67,30 @@ func drawImage(context: CGContext, img: CGImage, in rect: CGRect, clip: CGRect) 
     context.restoreGState()
 }
 
+func drawString(_ text: String, in rect: CGRect, context: CGContext, fontSize: CGFloat, align: NSTextAlignment, color: CGColor, centerY: Bool) {
+    let font = UIFont.systemFont(ofSize: fontSize)
+    let par = NSMutableParagraphStyle()
+    par.alignment = align
+    par.lineBreakMode = .byWordWrapping
+    let str = NSAttributedString(string: text, attributes: [.font: font, .paragraphStyle: par, .strokeColor: color, .foregroundColor: color])
+    let oversize = CGSize(width: rect.width, height: rect.height + fontSize) // over-draw a line (will be clipped later)
+    let bound = str.boundingRect(with: oversize, options: .usesLineFragmentOrigin, context: nil)
+    
+    let boundHeightClipped = min(bound.height, rect.height) // get the clipped size
+    var xshift: CGFloat = 0 // if text is small, alignment doesn't actually come into play - fix this
+    if align == .center { xshift = (rect.width - bound.width) / 2 }
+    else if align == .right { xshift = rect.width - bound.width }
+    
+    let pos = CGPoint(x: rect.origin.x + xshift, y: rect.origin.y + (centerY ? (rect.height - boundHeightClipped) / 2 : 0))
+    
+    UIGraphicsPushContext(context)
+    context.saveGState()
+    context.clip(to: CGRect(origin: pos, size: CGSize(width: bound.width, height: boundHeightClipped)))
+    str.draw(with: CGRect(origin: pos, size: bound.size), options: .usesLineFragmentOrigin, context: nil)
+    context.restoreGState()
+    UIGraphicsPopContext()
+}
+
 // ------------------------------------------------------------------------------------
 
 class CustomLabel: CustomControl, TextLike {
@@ -178,18 +202,7 @@ class CustomButton: CustomControl, ToggleLike, TextLike {
         let textRect = CGRect(
             origin: CGPoint(x: Self.padding, y: Self.padding),
             size: CGSize(width: rect.size.width - 2 * Self.padding, height: rect.size.height - 2 * Self.padding))
-        
-        let font = UIFont.systemFont(ofSize: baseFontSize * fontSize)
-        let par = NSMutableParagraphStyle()
-        par.alignment = .center
-        par.lineBreakMode = .byWordWrapping
-        let str = NSAttributedString(string: text, attributes: [.font: font, .paragraphStyle: par, .strokeColor: textColor, .foregroundColor: textColor])
-        let bound = str.boundingRect(with: textRect.size, options: .usesLineFragmentOrigin, context: nil)
-        let pos = CGPoint(x: textRect.origin.x, y: textRect.origin.y + (textRect.size.height - bound.size.height) / 2)
-        
-        UIGraphicsPushContext(context)
-        str.draw(with: CGRect(origin: pos, size: textRect.size), options: .usesLineFragmentOrigin, context: nil)
-        UIGraphicsPopContext()
+        drawString(text, in: textRect, context: context, fontSize: baseFontSize * fontSize, align: .center, color: textColor, centerY: true)
         
         if pressed {
             context.setFillColor(Self.pressColor)
@@ -219,6 +232,67 @@ class CustomButton: CustomControl, ToggleLike, TextLike {
     func getToggleState() -> Bool {
         pressed
     }
+    
+    func getText() -> String {
+        text
+    }
+    func setText(_ txt: String) {
+        text = txt
+    }
+}
+
+class CustomTextField: CustomControl, TextLike {
+    private var rect: CGRect
+    private var color: CGColor
+    private var textColor: CGColor
+    private var id: [UInt8]
+    private var text: String
+    private var readonly: Bool
+    private var fontSize: CGFloat
+    private var align: NSTextAlignment
+    private var landscape: Bool
+    
+    private static let strokeWidth: CGFloat = 2
+    private static let padding: CGFloat = 10
+    
+    init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, color: CGColor, textColor: CGColor, id: [UInt8], text: String, readonly: Bool, fontSize: CGFloat, align: NSTextAlignment, landscape: Bool) {
+        self.rect = CGRect(x: x, y: y, width: width, height: height)
+        self.color = color
+        self.textColor = textColor
+        self.id = id
+        self.text = text
+        self.readonly = readonly
+        self.fontSize = fontSize
+        self.align = align
+        self.landscape = landscape
+    }
+    
+    func getID() -> ArraySlice<UInt8> {
+        id[...]
+    }
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: rect.origin.x, y: rect.origin.y)
+        if landscape { context.rotate(by: .pi / 2) }
+        
+        let mainRect = CGRect(origin: .zero, size: rect.size)
+        context.setStrokeColor(color)
+        context.stroke(mainRect, width: Self.strokeWidth)
+        
+        let textRect = CGRect(
+            origin: CGPoint(x: Self.padding, y: Self.padding),
+            size: CGSize(width: mainRect.size.width - 2 * Self.padding, height: mainRect.size.height - Self.padding)) // don't pad bottom
+        drawString(text, in: textRect, context: context, fontSize: baseFontSize * fontSize, align: align, color: textColor, centerY: false)
+        
+        context.restoreGState()
+    }
+    func contains(pos: CGPoint) -> Bool {
+        let r = landscape ? rotate(rect: rect) : rect
+        return r.contains(pos)
+    }
+    func mouseDown(core: CoreController, pos: CGPoint) { }
+    func mouseMove(core: CoreController, pos: CGPoint) { }
+    func mouseUp(core: CoreController) { }
     
     func getText() -> String {
         text
