@@ -44,6 +44,10 @@ func rotate(rect: CGRect) -> CGRect {
 class CoreController: ObservableObject {
     @Published var showMenu = false
     
+    @Published var showEditText = false
+    @Published var editText: String = ""
+    var editTextTarget: TextLike?
+    
     @Published var changePasswordDialog = false
     @Published var runInBackgroundDialog = false
     
@@ -51,7 +55,7 @@ class CoreController: ObservableObject {
     
     @Published var macaddr = [UInt8](repeating: 0, count: 6)
     @Published var password: UInt64 = 0
-    @Published var passwordExpiry: Double = Double.infinity
+    @Published var passwordExpiry: Double = .infinity
     
     static let passwordLifecycle: Double = 24 * 60 * 60
     
@@ -496,5 +500,8 @@ class CoreController: ObservableObject {
         
         // start up all the sensors
         Sensors.start()
+        
+        // set raw textview backgrounds to transparent so we can modify the background colors of their wrappers
+        UITextView.appearance().backgroundColor = .clear
     }
 }

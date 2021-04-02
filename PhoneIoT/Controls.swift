@@ -290,7 +290,13 @@ class CustomTextField: CustomControl, TextLike {
         let r = landscape ? rotate(rect: rect) : rect
         return r.contains(pos)
     }
-    func mouseDown(core: CoreController, pos: CGPoint) { }
+    func mouseDown(core: CoreController, pos: CGPoint) {
+        if !readonly {
+            core.editText = text
+            core.editTextTarget = self
+            core.showEditText = true
+        }
+    }
     func mouseMove(core: CoreController, pos: CGPoint) { }
     func mouseUp(core: CoreController) { }
     

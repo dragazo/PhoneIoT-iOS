@@ -126,6 +126,48 @@ struct ContentView: View {
                 }
                 TouchTrackerView(core: core) // needs to be in front of the canvas to get touch events
                 GeometryReader { geometry in
+                    let dialogWidth = geometry.size.width * 0.75
+                    let editHeight = geometry.size.height * 0.25
+                    
+                    HStack {
+                        Spacer()
+                        VStack{
+                            Spacer()
+                            VStack {
+                                Text("Edit Content")
+                                TextEditor(text: $core.editText)
+                                    .frame(height: editHeight)
+                                HStack {
+                                    Spacer()
+                                    Button("Cancel") {
+                                        core.editTextTarget = nil
+                                        core.showEditText = false
+                                    }
+                                    Spacer()
+                                    Spacer()
+                                    Button("OK") {
+                                        if let target = core.editTextTarget {
+                                            target.setText(core.editText)
+                                        }
+                                        core.editTextTarget = nil
+                                        core.showEditText = false
+                                    }
+                                    Spacer()
+                                }
+                            }
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(20)
+                            Spacer()
+                        }
+                        .frame(width: dialogWidth)
+                        .offset(y: core.showEditText ? 0 : UIScreen.main.bounds.height)
+                        .animation(.interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.6))
+                        Spacer()
+                    }
+                    .background(Color.black.opacity(core.showEditText ? 0.5 : 0).edgesIgnoringSafeArea(.bottom))
+                }
+                GeometryReader { geometry in
                     let menuWidth = min(max(geometry.size.width * 0.5, 350), geometry.size.width * 0.9)
                     
                     HStack {
