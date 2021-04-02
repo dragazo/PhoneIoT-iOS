@@ -451,6 +451,19 @@ class CoreController: ObservableObject {
                 send(netsbloxify([ content[0], tryAddControl(control: control) ]))
             }
             
+            // add joystick
+            case UInt8(ascii: "j"): if content.count >= 26 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let radius = fromBEBytes(cgf32: content[17..<21]) / 100 * canvasSize.width
+                let color = fromBEBytes(cgcolor: content[21..<25])
+                let landscape = content[25] != 0
+                let id = [UInt8](content[26...])
+                
+                let control = CustomJoystick(x: x, y: y, r: radius, color: color, id: id, landscape: landscape)
+                send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+            }
+            
             default: print("unrecognized request code: \(content[0])")
             }
         }

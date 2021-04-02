@@ -19,7 +19,7 @@ protocol ToggleLike: CustomControl {
     func getToggleState() -> Bool
 }
 protocol JoystickLike: CustomControl {
-    func getVector() -> (CGFloat, CGFloat)
+    func getJoystick() -> CGPoint
 }
 protocol ImageLike: CustomControl {
     func getImage() -> CGImage
@@ -363,5 +363,86 @@ class CustomImageDisplay: CustomControl, ImageLike {
     }
     func setImage(_ img: CGImage) {
         self.img = img
+    }
+}
+
+class CustomJoystick: CustomControl, JoystickLike {
+    private var rect: CGRect
+    private var color: CGColor
+    private var id: [UInt8]
+    private var landscape: Bool
+    
+    private static let strokeWidthRatio: CGFloat = 0.035
+    private static let stickSize: CGFloat = 0.3333
+    
+    private var stick: CGPoint = .zero
+    
+    private var lastUpdate = Date()
+    private static let updateInterval: Double = 0.1
+    private var updateCount: UInt32 = 0
+    
+    init(x: CGFloat, y: CGFloat, r: CGFloat, color: CGColor, id: [UInt8], landscape: Bool) {
+        self.rect = CGRect(x: x, y: y, width: r, height: r)
+        self.color = color
+        self.id = id
+        self.landscape = landscape
+    }
+    
+    func getID() -> ArraySlice<UInt8> {
+        id[...]
+    }
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.setStrokeColor(color)
+        context.setLineWidth(rect.width * Self.strokeWidthRatio)
+        context.strokeEllipse(in: rect)
+        
+        let cgstick = CGPoint(
+            x: rect.origin.x + (stick.x + 1 - Self.stickSize) * (rect.width / 2),
+            y: rect.origin.y + (stick.y + 1 - Self.stickSize) * (rect.width / 2)
+        )
+        context.setFillColor(color)
+        context.fillEllipse(in: CGRect(origin: cgstick, size: CGSize(width: rect.width * Self.stickSize, height: rect.width * Self.stickSize)))
+    }
+    
+    func updateStick(core: CoreController, point: CGPoint) {
+        let radius = rect.width / 2
+        var x = point.x - (rect.origin.x + radius)
+        var y = point.y - (rect.origin.y + radius)
+        let dist = sqrt(x * x + y * y)
+        if dist > radius { // if it's too far away, point in the right direction but put it in bounds
+            x *= radius / dist
+            y *= radius / dist
+        }
+        stick = CGPoint(x: x / radius, y: y / radius)
+        
+        let now = Date()
+        if now.timeIntervalSince(lastUpdate) >= Self.updateInterval { // throttle events since we're way faster than the server
+            lastUpdate = now
+            sendEvent(core: core)
+        }
+    }
+    func sendEvent(core: CoreController) {
+        let x = landscape ? stick.y : stick.x
+        let y = landscape ? stick.x : -stick.y
+        core.send(core.netsbloxify([ UInt8(ascii: "K") ] + toBEBytes(u32: updateCount) + toBEBytes(cgf32: x) + toBEBytes(cgf32: y) + id))
+        updateCount += 1
+    }
+    
+    func contains(pos: CGPoint) -> Bool {
+        ellipseContains(ellipse: rect, point: pos)
+    }
+    func mouseDown(core: CoreController, pos: CGPoint) {
+        updateStick(core: core, point: pos)
+    }
+    func mouseMove(core: CoreController, pos: CGPoint) {
+        updateStick(core: core, point: pos)
+    }
+    func mouseUp(core: CoreController) {
+        stick = .zero
+        sendEvent(core: core) // make sure we definitely send this last event
+    }
+    
+    func getJoystick() -> CGPoint {
+        stick
     }
 }
