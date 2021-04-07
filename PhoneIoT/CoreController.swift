@@ -493,7 +493,7 @@ class CoreController: ObservableObject {
             }
             
             // add toggle
-            case UInt8(ascii: "Z"): if content.count >= 30 {
+            case UInt8(ascii: "Z"): if content.count >= 34 {
                 let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
                 let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
                 let checkColor = fromBEBytes(cgcolor: content[17..<21])
@@ -509,6 +509,30 @@ class CoreController: ObservableObject {
                     if let text = String(bytes: content[(34+idlen)...], encoding: .utf8) {
                         let control = CustomToggle(x: x, y: y, checkColor: checkColor, textColor: textColor, checked: checked, id: id, text: text, style: style, fontSize: fontSize, landscape: landscape, readonly: readonly)
                         send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                    }
+                }
+            }
+            
+            // add radio button
+            case UInt8(ascii: "y"): if content.count >= 33 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let checkColor = fromBEBytes(cgcolor: content[17..<21])
+                let textColor = fromBEBytes(cgcolor: content[21..<25])
+                let fontSize = fromBEBytes(cgf32: content[25..<29])
+                let checked = content[29] != 0
+                let landscape = content[30] != 0
+                let readonly = content[31] != 0
+                let idlen = Int(content[32])
+                if content.count >= 33 + idlen + 1 {
+                    let id = [UInt8](content[33..<(33+idlen)])
+                    let grouplen = Int(content[33+idlen])
+                    if content.count >= 33 + idlen + 1 + grouplen {
+                        let group = [UInt8](content[(33 + idlen + 1)..<(33 + idlen + 1 + grouplen)])
+                        if let text = String(bytes: content[(33 + idlen + 1 + grouplen)...], encoding: .utf8) {
+                            let control = CustomRadiobutton(x: x, y: y, checkColor: checkColor, textColor: textColor, checked: checked, id: id, group: group, text: text, fontSize: fontSize, landscape: landscape, readonly: readonly)
+                            send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                        }
                     }
                 }
             }

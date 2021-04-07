@@ -576,3 +576,103 @@ class CustomToggle: CustomControl, ToggleLike, TextLike {
         text = txt
     }
 }
+
+class CustomRadiobutton: CustomControl, TextLike, ToggleLike {
+    private var pos: CGPoint
+    private var checkColor: CGColor
+    private var textColor: CGColor
+    private var checked: Bool
+    private var id: [UInt8]
+    private var group: [UInt8]
+    private var text: String
+    private var fontSize: CGFloat
+    private var landscape: Bool
+    private var readonly: Bool
+    
+    private var box: CGSize = .zero
+    
+    private static let uncheckedColor = CGColor(gray: 0.85, alpha: 1)
+    
+    private static let strokeWidth: CGFloat = 4
+    private static let radioSize: CGFloat = 1
+    private static let circleSize: CGFloat = 0.25
+    
+    private static let textPadding: CGFloat = 25
+    private static let clickPadding: CGFloat = 20
+    
+    init(x: CGFloat, y: CGFloat, checkColor: CGColor, textColor: CGColor, checked: Bool, id: [UInt8], group: [UInt8], text: String, fontSize: CGFloat, landscape: Bool, readonly: Bool) {
+        self.pos = CGPoint(x: x, y: y)
+        self.checkColor = checkColor
+        self.textColor = textColor
+        self.checked = checked
+        self.id = id
+        self.group = group
+        self.text = text
+        self.fontSize = fontSize
+        self.landscape = landscape
+        self.readonly = readonly
+    }
+    
+    func getID() -> ArraySlice<UInt8> {
+        id[...]
+    }
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: pos.x, y: pos.y)
+        if landscape { context.rotate(by: .pi / 2) }
+    
+        let size = baseFontSize * fontSize
+        let w = size * Self.radioSize
+        box = CGSize(width: w, height: w)
+        let base = CGRect(origin: .zero, size: box)
+        
+        let color = checked ? checkColor : Self.uncheckedColor
+        context.setStrokeColor(color)
+        context.setFillColor(color)
+        context.setLineWidth(Self.strokeWidth)
+        context.strokeEllipse(in: base)
+        if checked {
+            let r = inflate(rect: CGRect(origin: CGPoint(x: w / 2, y: w / 2), size: .zero), by: size * Self.circleSize)
+            context.fillEllipse(in: r)
+        }
+        
+        let textbox = CGRect(x: box.width + Self.textPadding, y: box.height / 2 - size, width: .infinity, height: 2 * size)
+        drawString(text, in: textbox, context: context, fontSize: size, align: .left, color: textColor, centerY: true)
+        
+        context.restoreGState()
+    }
+    
+    func contains(pos: CGPoint) -> Bool {
+        if box == .zero { return false }
+        let base = CGRect(origin: self.pos, size: box)
+        return inflate(rect: landscape ? rotate(rect: base) : base, by: Self.clickPadding).contains(pos)
+    }
+    func mouseDown(core: CoreController, pos: CGPoint) {
+        if !readonly {
+            checked = true
+            for control in core.controls {
+                if let other = control as? CustomRadiobutton {
+                    if other === self || other.group != group { continue }
+                    other.checked = false
+                }
+            }
+            core.send(core.netsbloxify([ UInt8(ascii: "b") ] + id))
+        }
+    }
+    func mouseMove(core: CoreController, pos: CGPoint) { }
+    func mouseUp(core: CoreController) { }
+    
+    func getToggleState() -> Bool {
+        checked
+    }
+    func setToggleState(_ state: Bool) {
+        checked = state
+    }
+    
+    func getText() -> String {
+        text
+    }
+    func setText(_ txt: String) {
+        text = txt
+    }
+}
