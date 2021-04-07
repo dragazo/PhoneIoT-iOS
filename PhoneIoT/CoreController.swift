@@ -40,6 +40,9 @@ func defaultImage(color: CGColor?) -> UIImage {
 func rotate(rect: CGRect) -> CGRect {
     CGRect(x: rect.origin.x - rect.size.height, y: rect.origin.y, width: rect.size.height, height: rect.size.width)
 }
+func inflate(rect: CGRect, by padding: CGFloat) -> CGRect {
+    CGRect(x: rect.origin.x - padding, y: rect.origin.y - padding, width: rect.width + 2 * padding, height: rect.height + 2 * padding)
+}
 
 class CoreController: ObservableObject {
     @Published var showMenu = false
@@ -368,6 +371,31 @@ class CoreController: ObservableObject {
                 }
             }
             
+            // set toggle state
+            case UInt8(ascii: "w"): if content.count >= 10 {
+                let state = content[9] != 0
+                if let control = getControl(id: content[10...]) as? ToggleLike {
+                    control.setToggleState(state)
+                    triggerUpdate()
+                    send(netsbloxify([ content[0], 0 ]))
+                }
+                else {
+                    send(netsbloxify([ content[0], 3 ]))
+                }
+            }
+            
+            // get toggle state
+            case UInt8(ascii: "W"): if content.count >= 9 {
+                let control = getControl(id: content[9...]) as? ToggleLike
+                send(netsbloxify([ content[0], control == nil ? 2 : control!.getToggleState() ? 1 : 0 ]))
+            }
+            
+            // is pushed
+            case UInt8(ascii: "V"): if content.count >= 9 {
+                let control = getControl(id: content[9...]) as? PushLike
+                send(netsbloxify([ content[0], control == nil ? 2 : control!.isPushed() ? 1 : 0 ]))
+            }
+            
             // add label
             case UInt8(ascii: "g"): if content.count >= 28 {
                 let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
@@ -462,6 +490,27 @@ class CoreController: ObservableObject {
                 
                 let control = CustomJoystick(x: x, y: y, r: radius, color: color, id: id, landscape: landscape)
                 send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+            }
+            
+            // add toggle
+            case UInt8(ascii: "Z"): if content.count >= 30 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let checkColor = fromBEBytes(cgcolor: content[17..<21])
+                let textColor = fromBEBytes(cgcolor: content[21..<25])
+                let fontSize = fromBEBytes(cgf32: content[25..<29])
+                let checked = content[29] != 0
+                let style = fromBEBytes(togglestyle: content[30])
+                let landscape = content[31] != 0
+                let readonly = content[32] != 0
+                let idlen = Int(content[33])
+                if content.count >= 34 + idlen {
+                    let id = [UInt8](content[34..<(34+idlen)])
+                    if let text = String(bytes: content[(34+idlen)...], encoding: .utf8) {
+                        let control = CustomToggle(x: x, y: y, checkColor: checkColor, textColor: textColor, checked: checked, id: id, text: text, style: style, fontSize: fontSize, landscape: landscape, readonly: readonly)
+                        send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+                    }
+                }
             }
             
             default: print("unrecognized request code: \(content[0])")

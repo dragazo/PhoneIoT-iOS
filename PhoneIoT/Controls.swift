@@ -17,6 +17,10 @@ protocol CustomControl: AnyObject {
 }
 protocol ToggleLike: CustomControl {
     func getToggleState() -> Bool
+    func setToggleState(_ state: Bool)
+}
+protocol PushLike: CustomControl {
+    func isPushed() -> Bool
 }
 protocol JoystickLike: CustomControl {
     func getJoystick() -> CGPoint
@@ -33,9 +37,7 @@ protocol TextLike: CustomControl {
 // ----------------------------------------------------------------------------------
 
 enum FitType {
-    case stretch
-    case fit
-    case zoom
+    case stretch, fit, zoom
 }
 func center(img: CGImage, in rect: CGRect, scale: CGFloat) -> CGRect {
     let oldsize = CGSize(width: img.width, height: img.height)
@@ -157,7 +159,7 @@ enum ButtonStyle {
     case Rectangle
     case Ellipse
 }
-class CustomButton: CustomControl, ToggleLike, TextLike {
+class CustomButton: CustomControl, TextLike, PushLike {
     private var rect: CGRect
     private var color: CGColor
     private var textColor: CGColor
@@ -229,7 +231,7 @@ class CustomButton: CustomControl, ToggleLike, TextLike {
         pressed = false
     }
     
-    func getToggleState() -> Bool {
+    func isPushed() -> Bool {
         pressed
     }
     
@@ -444,5 +446,133 @@ class CustomJoystick: CustomControl, JoystickLike {
     
     func getJoystick() -> CGPoint {
         stick
+    }
+}
+
+enum ToggleStyle {
+    case checkbox, toggleswitch
+}
+class CustomToggle: CustomControl, ToggleLike, TextLike {
+    private var pos: CGPoint
+    private var checkColor: CGColor
+    private var textColor: CGColor
+    private var checked: Bool
+    private var id: [UInt8]
+    private var text: String
+    private var style: ToggleStyle
+    private var fontSize: CGFloat
+    private var landscape: Bool
+    private var readonly: Bool
+    
+    private var box: CGSize = .zero
+    
+    private static let uncheckedColor = CGColor(gray: 0.85, alpha: 1)
+    
+    private static let strokeWidth: CGFloat = 4
+    
+    private static let checkboxSize: CGFloat = 1
+    
+    private static let toggleswitchWidth: CGFloat = 2.5
+    private static let toggleswitchHeight: CGFloat = 1.5
+    
+    private static let textPadding: CGFloat = 25
+    private static let clickPadding: CGFloat = 20
+    
+    init(x: CGFloat, y: CGFloat, checkColor: CGColor, textColor: CGColor, checked: Bool, id: [UInt8], text: String, style: ToggleStyle, fontSize: CGFloat, landscape: Bool, readonly: Bool) {
+        self.pos = CGPoint(x: x, y: y)
+        self.checkColor = checkColor
+        self.textColor = textColor
+        self.checked = checked
+        self.id = id
+        self.text = text
+        self.style = style
+        self.fontSize = fontSize
+        self.landscape = landscape
+        self.readonly = readonly
+    }
+    
+    func getID() -> ArraySlice<UInt8> {
+        id[...]
+    }
+    func drawCheckbox(context: CGContext, size: CGFloat) {
+        let w = size * Self.checkboxSize
+        box = CGSize(width: w, height: w)
+        let rect = CGRect(origin: .zero, size: box)
+        
+        context.setStrokeColor(checked ? checkColor : Self.uncheckedColor)
+        
+        context.stroke(rect, width: Self.strokeWidth)
+        if checked {
+            context.beginPath()
+            context.move(to: CGPoint(x: w / 4, y: w / 2))
+            context.addLine(to: CGPoint(x: w / 2, y: 3 * w / 4))
+            context.addLine(to: CGPoint(x: w, y: -w / 2))
+            
+            context.setLineWidth(Self.strokeWidth)
+            context.strokePath()
+        }
+    }
+    func drawToggleswitch(context: CGContext, size: CGFloat) {
+        let w = size * Self.toggleswitchWidth
+        let h = size * Self.toggleswitchHeight
+        box = CGSize(width: w, height: h)
+        
+        context.setFillColor(checked ? checkColor : Self.uncheckedColor)
+        
+        context.beginPath()
+        context.move(to: CGPoint(x: h / 2, y: 0))
+        context.addLine(to: CGPoint(x: w - h / 2, y: 0))
+        context.move(to: CGPoint(x: h / 2, y: h))
+        context.addLine(to: CGPoint(x: w - h / 2, y: h))
+        context.addArc(center: CGPoint(x: h / 2, y: h / 2), radius: h / 2, startAngle: .pi / 2, endAngle: .pi * 3 / 2, clockwise: false)
+        context.addArc(center: CGPoint(x: w - h / 2, y: h / 2), radius: h / 2, startAngle: .pi * 3 / 2, endAngle: .pi / 2, clockwise: false)
+        context.fillPath()
+        
+        context.setBlendMode(.xor)
+        context.fillEllipse(in: CGRect(x: (checked ? w - h : 0) + Self.strokeWidth, y: Self.strokeWidth, width: h - 2 * Self.strokeWidth, height: h - 2 * Self.strokeWidth))
+    }
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: pos.x, y: pos.y)
+        if landscape { context.rotate(by: .pi / 2) }
+        
+        let size = baseFontSize * fontSize
+        switch style {
+        case .checkbox: drawCheckbox(context: context, size: size)
+        case .toggleswitch: drawToggleswitch(context: context, size: size)
+        }
+        
+        let textbox = CGRect(x: box.width + Self.textPadding, y: box.height / 2 - size, width: .infinity, height: 2 * size)
+        drawString(text, in: textbox, context: context, fontSize: size, align: .left, color: textColor, centerY: true)
+        
+        context.restoreGState()
+    }
+    
+    func contains(pos: CGPoint) -> Bool {
+        if box == .zero { return false }
+        let base = CGRect(origin: self.pos, size: box)
+        return inflate(rect: landscape ? rotate(rect: base) : base, by: Self.clickPadding).contains(pos)
+    }
+    func mouseDown(core: CoreController, pos: CGPoint) {
+        if !readonly {
+            checked.toggle()
+            core.send(core.netsbloxify([ UInt8(ascii: "z"), checked ? 1 : 0 ] + id))
+        }
+    }
+    func mouseMove(core: CoreController, pos: CGPoint) { }
+    func mouseUp(core: CoreController) { }
+    
+    func getToggleState() -> Bool {
+        checked
+    }
+    func setToggleState(_ state: Bool) {
+        checked = state
+    }
+    
+    func getText() -> String {
+        text
+    }
+    func setText(_ txt: String) {
+        text = txt
     }
 }

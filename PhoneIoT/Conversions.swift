@@ -68,6 +68,12 @@ func fromBEBytes(imgfit: UInt8) -> FitType {
     default: return .fit
     }
 }
+func fromBEBytes(togglestyle: UInt8) -> ToggleStyle {
+    switch togglestyle {
+    case 1: return .checkbox
+    default: return .toggleswitch
+    }
+}
 
 func uiImage(cgImage: CGImage) -> UIImage {
     UIImage(cgImage: cgImage)
