@@ -113,6 +113,46 @@ struct TouchTrackerView: UIViewRepresentable {
     }
 }
 
+struct ImagePickerView: UIViewControllerRepresentable {
+    @Environment(\.presentationMode) var isPresented
+    var core: CoreController
+    var sourceType: UIImagePickerController.SourceType
+    
+    class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        var picker: ImagePickerView
+        init(picker: ImagePickerView) {
+            self.picker = picker
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            guard let img = info[.originalImage] as? UIImage else { return }
+            self.picker.isPresented.wrappedValue.dismiss()
+            
+            let core = self.picker.core
+            if let cgimg = cgImage(uiImage: fixOrientation(img: img)) {
+                if let target = core.imagePickerTarget {
+                    target.setImage(cgimg)
+                    core.triggerUpdate()
+                    core.send(core.netsbloxify([ UInt8(ascii: "b") ] + target.getID()))
+                }
+            }
+        }
+    }
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let imagePicker = UIImagePickerController()
+        imagePicker.sourceType = self.sourceType
+        imagePicker.delegate = context.coordinator // link the coordinator so it gets the image selected event
+        return imagePicker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) { }
+
+    func makeCoordinator() -> Coordinator {
+        return Coordinator(picker: self)
+    }
+}
+
 struct ContentView: View {
     @StateObject var core = CoreController()
     
@@ -148,6 +188,8 @@ struct ContentView: View {
                                     Button("OK") {
                                         if let target = core.editTextTarget {
                                             target.setText(core.editText)
+                                            let id = target.getID()
+                                            core.send(core.netsbloxify([ UInt8(ascii: "t"), UInt8(id.count) ] + id + core.editText.utf8))
                                         }
                                         core.editTextTarget = nil
                                         core.showEditText = false
@@ -290,6 +332,10 @@ struct ContentView: View {
                     }
                 })
             )
+            .sheet(isPresented: $core.showImagePicker) {
+                // was want to use the camera, but use photoLibrary instead if not available (would crash otherwise)
+                ImagePickerView(core: core, sourceType: UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary)
+            }
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear(perform: core.initialize)

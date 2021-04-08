@@ -47,6 +47,9 @@ func inflate(rect: CGRect, by padding: CGFloat) -> CGRect {
 class CoreController: ObservableObject {
     @Published var showMenu = false
     
+    @Published var showImagePicker = false
+    var imagePickerTarget: ImageLike?
+    
     @Published var showEditText = false
     @Published var editText: String = ""
     var editTextTarget: TextLike?
@@ -394,6 +397,17 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "V"): if content.count >= 9 {
                 let control = getControl(id: content[9...]) as? PushLike
                 send(netsbloxify([ content[0], control == nil ? 2 : control!.isPushed() ? 1 : 0 ]))
+            }
+            
+            // get joystick vector
+            case UInt8(ascii: "J"): if content.count >= 9 {
+                if let control = getControl(id: content[9...]) as? JoystickLike {
+                    let stick = control.getJoystick()
+                    send(netsbloxify([ content[0] ] + toBEBytes(cgf32: stick.x) + toBEBytes(cgf32: stick.y)))
+                }
+                else {
+                    send(netsbloxify([ content[0] ]))
+                }
             }
             
             // add label

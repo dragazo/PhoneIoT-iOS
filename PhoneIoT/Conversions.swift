@@ -117,3 +117,18 @@ func jpeg(uiImage: UIImage) -> [UInt8]? {
     data.copyBytes(to: &buf, count: data.count)
     return buf
 }
+
+func fixOrientation(img: UIImage) -> UIImage {
+    if (img.imageOrientation == .up) {
+        return img
+    }
+
+    UIGraphicsBeginImageContextWithOptions(img.size, false, img.scale)
+    let rect = CGRect(x: 0, y: 0, width: img.size.width, height: img.size.height)
+    img.draw(in: rect)
+
+    let normalizedImage = UIGraphicsGetImageFromCurrentImageContext()!
+    UIGraphicsEndImageContext()
+
+    return normalizedImage
+}

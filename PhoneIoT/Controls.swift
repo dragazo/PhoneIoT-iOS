@@ -356,7 +356,12 @@ class CustomImageDisplay: CustomControl, ImageLike {
         let r = landscape ? rotate(rect: rect) : rect
         return r.contains(pos)
     }
-    func mouseDown(core: CoreController, pos: CGPoint) { }
+    func mouseDown(core: CoreController, pos: CGPoint) {
+        if !readonly {
+            core.imagePickerTarget = self
+            core.showImagePicker = true
+        }
+    }
     func mouseMove(core: CoreController, pos: CGPoint) { }
     func mouseUp(core: CoreController) { }
     
