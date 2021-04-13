@@ -429,9 +429,8 @@ class CustomJoystick: CustomControl, JoystickLike {
         }
     }
     func sendEvent(core: CoreController) {
-        let x = landscape ? stick.y : stick.x
-        let y = landscape ? stick.x : -stick.y
-        core.send(core.netsbloxify([ UInt8(ascii: "K") ] + toBEBytes(u32: updateCount) + toBEBytes(cgf32: x) + toBEBytes(cgf32: y) + id))
+        let vec = getJoystick()
+        core.send(core.netsbloxify([ UInt8(ascii: "K") ] + toBEBytes(u32: updateCount) + toBEBytes(cgf32: vec.x) + toBEBytes(cgf32: vec.y) + id))
         updateCount += 1
     }
     
@@ -450,7 +449,9 @@ class CustomJoystick: CustomControl, JoystickLike {
     }
     
     func getJoystick() -> CGPoint {
-        stick
+        let x = landscape ? stick.y : stick.x
+        let y = landscape ? stick.x : -stick.y
+        return CGPoint(x: x, y: y)
     }
 }
 
