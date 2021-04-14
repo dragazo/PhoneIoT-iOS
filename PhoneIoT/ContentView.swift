@@ -155,6 +155,7 @@ struct ImagePickerView: UIViewControllerRepresentable {
 
 struct ContentView: View {
     @StateObject var core = CoreController()
+    @Environment(\.scenePhase) var scenePhase
     
     var body: some View {
         NavigationView {
@@ -256,9 +257,14 @@ struct ContentView: View {
                                 Group {
                                     Toggle("Run In background", isOn: $core.runInBackground)
                                         .onChange(of: core.runInBackground, perform: { _ in
+                                            guard core.initialized else { return }
+                                            
                                             if core.runInBackground {
                                                 core.runInBackgroundDialog = true
                                             }
+                                            
+                                            // store this in settings
+                                            UserDefaults.standard.set(core.runInBackground, forKey: "runinbackground")
                                         })
                                         .alert(isPresented: $core.runInBackgroundDialog) {
                                             Alert(
@@ -339,6 +345,7 @@ struct ContentView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear(perform: core.initialize)
+        .onChange(of: scenePhase, perform: { phase in core.scenePhase = phase }) // for some reason using self.scenePhase here doesn't work
     }
 }
 

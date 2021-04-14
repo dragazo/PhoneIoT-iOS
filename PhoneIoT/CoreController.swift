@@ -45,6 +45,9 @@ func inflate(rect: CGRect, by padding: CGFloat) -> CGRect {
 }
 
 class CoreController: ObservableObject {
+    var initialized = false
+    var scenePhase: ScenePhase = .background
+    
     @Published var showMenu = false
     
     @Published var showImagePicker = false
@@ -81,6 +84,11 @@ class CoreController: ObservableObject {
     var controls = [CustomControl]() // we need to wrap this in a class so we can pas it by reference
     var canvasSize: CGSize = CGSize(width: 50, height: 50)
     static let maxControls: Int = 1024
+    
+    // checks if we should be live an performing communication with the server
+    func isLive() -> Bool {
+        return scenePhase == .active || runInBackground
+    }
     
     @Published var updateTrigger = false // value doesn't matter, we just toggle it to invalidate the view
     func triggerUpdate() {
@@ -196,6 +204,8 @@ class CoreController: ObservableObject {
         return expanded
     }
     func send(_ msg: [UInt8]) {
+        guard isLive() else { return }
+        
         udp?.send(content: msg, completion: .contentProcessed { err in
             if let err = err {
                 print("send error: \(err)")
@@ -251,12 +261,25 @@ class CoreController: ObservableObject {
     }
     func messageHandler(msg: Data?, context: NWConnection.ContentContext?, isComplete: Bool, error: NWError?) {
         // go ahead and re-register ourselves to receive the next packet
-        udp?.receiveMessage(completion: messageHandler)
+        if let udp = udp {
+            switch udp.state {
+            case .failed(_):
+                if scenePhase == .active { // if not active, networking will be disconnect and it will fail again
+                    DispatchQueue.main.async { self.connectToServer() } // we need to do this from main thread because of the timer
+                    return
+                }
+            default: break
+            }
+            udp.receiveMessage(completion: messageHandler)
+        }
         
         // handle the message, if valid
         if msg != nil && error == nil && isComplete {
             let content = [UInt8](msg!)
 
+            // don't do any communication if we're not live (we can receive, but don't respond)
+            if !isLive() { return }
+            
             // check for things that don't need auth
             if content.count == 1 && content[0] == UInt8(ascii: "I") {
                 // connected to server ack - give user a message
@@ -571,7 +594,7 @@ class CoreController: ObservableObject {
         udp!.start(queue: .global())
         
         // start listening for (complete) packets
-        udp?.receiveMessage(completion: messageHandler)
+        udp!.receiveMessage(completion: messageHandler)
         
         // start the hearbeat timer if it isn't already - we need one per 2 min, so 30 secs will allow for some dropped packets
         if heatbeatTimer == nil {
@@ -585,6 +608,9 @@ class CoreController: ObservableObject {
     }
     
     func initialize() {
+        if initialized { return }
+        scenePhase = .active // we don't get updates for the first scene phase, so we're doing this from onAppear on the main app view
+        
         // read the stored "macaddr" for the device, or generate a new persistent one if none exists
         let defaults = UserDefaults.standard
         var addr = defaults.array(forKey: "macaddr") as? [UInt8]
@@ -598,10 +624,15 @@ class CoreController: ObservableObject {
         }
         macaddr = addr!
         
+        // read the stored "runinbackground" for the device
+        runInBackground = defaults.bool(forKey: "runinbackground") // default if not defined is false, which works for our needs
+        
         // start up all the sensors
         Sensors.start()
         
         // set raw textview backgrounds to transparent so we can modify the background colors of their wrappers
         UITextView.appearance().backgroundColor = .clear
+        
+        initialized = true
     }
 }
