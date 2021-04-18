@@ -44,6 +44,20 @@ func inflate(rect: CGRect, by padding: CGFloat) -> CGRect {
     CGRect(x: rect.origin.x - padding, y: rect.origin.y - padding, width: rect.width + 2 * padding, height: rect.height + 2 * padding)
 }
 
+let IP_REGEX = try! NSRegularExpression(pattern: "^(\\d+\\.){3}\\d+$")
+func is_ip(_ addr: String) -> Bool {
+    IP_REGEX.firstMatch(in: addr, options: [], range: NSRange(location: 0, length: addr.utf16.count)) != nil
+}
+func http_get(_ addr: String, then: @escaping (String?) -> ()) {
+    print("http get \(addr)")
+    guard let url = URL(string: addr) else { return then(nil) }
+    
+    URLSession.shared.dataTask(with: url) { (data, response, error) in
+        guard let data = data else { return then(nil) }
+        then(String(bytes: data, encoding: .utf8))
+    }.resume()
+}
+
 class CoreController: ObservableObject {
     var initialized = false
     var scenePhase: ScenePhase = .background
@@ -69,7 +83,7 @@ class CoreController: ObservableObject {
     static let passwordLifecycle: Double = 24 * 60 * 60
     
     @Published var addresstxt: String = "10.0.0.24"
-    static let serverPort: UInt16 = 1976
+    static let defaultServerPort: UInt16 = 1976
     
     @Published var toastMessages = [(String, TimeInterval)]()
     var toastRunning = false
@@ -585,26 +599,32 @@ class CoreController: ObservableObject {
             old.cancel()
         }
         
-        // start up the connection
-        print("connecting to \(addresstxt):\(Self.serverPort)")
-        udp = NWConnection(
-            host: NWEndpoint.Host(addresstxt),
-            port: NWEndpoint.Port(rawValue: Self.serverPort)!,
-            using: .udp)
-        udp!.start(queue: .global())
-        
-        // start listening for (complete) packets
-        udp!.receiveMessage(completion: messageHandler)
-        
-        // start the hearbeat timer if it isn't already - we need one per 2 min, so 30 secs will allow for some dropped packets
-        if heatbeatTimer == nil {
-            heatbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { t in
-                self.send(self.netsbloxify([ UInt8(ascii: "I") ]))
+        let addr = addresstxt // captured for the closure
+        let target = is_ip(addr) ? addr + ":8080" : addr.starts(with: "https://") ? addr : "https://" + addr
+        http_get(target + "/services/routes/phone-iot/port") { content in
+            let port = UInt16(content ?? "") ?? Self.defaultServerPort
+            
+            // start up the connection
+            print("connecting to \(addr):\(port)")
+            self.udp = NWConnection(
+                host: NWEndpoint.Host(addr),
+                port: NWEndpoint.Port(rawValue: port)!,
+                using: .udp)
+            self.udp!.start(queue: .global())
+            
+            // start listening for (complete) packets
+            self.udp!.receiveMessage(completion: self.messageHandler)
+            
+            // start the hearbeat timer if it isn't already - we need one per 2 min, so 30 secs will allow for some dropped packets
+            if self.heatbeatTimer == nil {
+                self.heatbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { t in
+                    self.send(self.netsbloxify([ UInt8(ascii: "I") ]))
+                }
             }
+            
+            // send a heartbeat to connect immediately, but add a conn ack request flag so we get a message back
+            self.send(self.netsbloxify([ UInt8(ascii: "I"), 0 ]))
         }
-        
-        // send a heartbeat to connect immediately, but add a conn ack request flag so we get a message back
-        send(netsbloxify([ UInt8(ascii: "I"), 0 ]))
     }
     
     func initialize() {
