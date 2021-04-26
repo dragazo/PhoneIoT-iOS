@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Network
+import AVFAudio
+import AVFoundation
 
 func toHex(bytes: ArraySlice<UInt8>) -> String {
     bytes.map({ String(format: "%02x", $0) }).joined()
@@ -314,7 +316,7 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "R"): send(heading: content[0], sensorData: Sensors.rotationVector)
             case UInt8(ascii: "r"): send(heading: content[0], sensorData: nil) // game rotation vector
             case UInt8(ascii: "M"): send(heading: content[0], sensorData: Sensors.magnetometer)
-            case UInt8(ascii: "m"): send(heading: content[0], sensorData: nil) // sound
+            case UInt8(ascii: "m"): send(heading: content[0], sensorData: Sensors.microphone)
             case UInt8(ascii: "P"): send(heading: content[0], sensorData: nil) // proximity
             case UInt8(ascii: "S"): send(heading: content[0], sensorData: nil) // step counter
             case UInt8(ascii: "l"): send(heading: content[0], sensorData: nil) // light level
@@ -647,7 +649,6 @@ class CoreController: ObservableObject {
         // read the stored "runinbackground" for the device
         runInBackground = defaults.bool(forKey: "runinbackground") // default if not defined is false, which works for our needs
         
-        // start up all the sensors
         Sensors.start()
         
         // set raw textview backgrounds to transparent so we can modify the background colors of their wrappers

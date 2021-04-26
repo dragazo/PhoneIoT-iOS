@@ -45,6 +45,8 @@
 	<string>We need background location data for the run in background option.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This lets you upload images to NetsBlox (only with your approval).</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This is used to get the microphone volume level</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
