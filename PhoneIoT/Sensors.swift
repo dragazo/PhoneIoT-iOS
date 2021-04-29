@@ -9,6 +9,7 @@ import CoreMotion
 import CoreLocation
 import AVFAudio
 import AVFoundation
+import SwiftUI
 
 private class LocationManager: NSObject, CLLocationManagerDelegate {
     private let manager: CLLocationManager
@@ -51,7 +52,7 @@ private class LocationManager: NSObject, CLLocationManagerDelegate {
 }
 
 private class MicrophoneManager {
-    var recorder: AVAudioRecorder?
+    private var recorder: AVAudioRecorder?
     
     static let global = MicrophoneManager()
     private init() { }
@@ -90,6 +91,35 @@ private class MicrophoneManager {
         self.recorder!.stop()
         self.recorder = nil
     }
+    
+    func getReading() -> Double? {
+        guard let recorder = self.recorder else { return nil }
+        recorder.updateMeters()
+        let x = Double(recorder.averagePower(forChannel: 0))
+        let fixed = pow(2, x / 10) / 1.5 // convert db to volume level (plus a little scaling to match Android tests)
+        return min(1, fixed)             // clamp to [0, 1]
+    }
+}
+
+class ProximityManager {
+    static let global = ProximityManager()
+    private init() {}
+    
+    func start() {
+        let device = UIDevice.current
+        device.isProximityMonitoringEnabled = true
+        NotificationCenter.default.addObserver(self, selector: #selector(proximityChanged), name: UIDevice.proximityStateDidChangeNotification, object: device)
+    }
+    func stop() {
+        let device = UIDevice.current
+        device.isProximityMonitoringEnabled = false
+        NotificationCenter.default.removeObserver(self, name: UIDevice.proximityStateDidChangeNotification, object: nil)
+    }
+    
+    @objc func proximityChanged(_ note: Notification) {
+        guard let device = note.object as? UIDevice else { return }
+        Sensors.proximity = [device.proximityState ? 0 : 8] // match android behavior
+    }
 }
 
 class Sensors {
@@ -100,23 +130,21 @@ class Sensors {
     
     private static let accelerometerScale: Double = -9.81
     
-    static var accelerometer: [Double]?
     static var linearAcceleration: [Double]?
-    static var gravity: [Double]?
-    static var magnetometer: [Double]?
-    static var gyroscope: [Double]?
     static var rotationVector: [Double]?
+    static var accelerometer: [Double]?
+    static var magnetometer: [Double]?
+    static var microphone: [Double]? // microphone level (linear)
+    static var gyroscope: [Double]?
+    static var proximity: [Double]?
+    static var location: [Double]? // lat, long, bearing, altitude
+    static var gravity: [Double]?
     
     // these aren't implemented yet
     static var gameRotationVector: [Double]?
-    static var proximity: [Double]?
     static var stepCounter: [Double]?
     static var light: [Double]?
     static var orientation: [Double]?
-    
-    static var location: [Double]? // lat, long, bearing, altitude
-    
-    static var microphone: [Double]? // microphone level
     
     private static func update(accelerometer data: CMAcceleration) {
         accelerometer = [accelerometerScale * data.x, accelerometerScale * data.y, accelerometerScale * data.z]
@@ -165,11 +193,8 @@ class Sensors {
                 if let data = motion.magnetometerData { update(magnetometer: data.magneticField) }
             }
             
-            if let recorder = MicrophoneManager.global.recorder {
-                recorder.updateMeters()
-                let x = Double(recorder.averagePower(forChannel: 0))
-                let fixed = pow(2, x / 10) / 1.5 // convert db to volume level (plus a little scaling to match Android tests)
-                microphone = [min(1, fixed)]
+            if let mic = MicrophoneManager.global.getReading() {
+                microphone = [mic]
             }
         }
         
@@ -194,6 +219,7 @@ class Sensors {
         
         LocationManager.global.start()
         MicrophoneManager.global.start()
+        ProximityManager.global.start()
     }
     static func stop() {
         if updateTimer == nil { return }
@@ -207,5 +233,6 @@ class Sensors {
         
         LocationManager.global.stop()
         MicrophoneManager.global.stop()
+        ProximityManager.global.stop()
     }
 }

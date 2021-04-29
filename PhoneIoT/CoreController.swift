@@ -317,7 +317,7 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "r"): send(heading: content[0], sensorData: nil) // game rotation vector
             case UInt8(ascii: "M"): send(heading: content[0], sensorData: Sensors.magnetometer)
             case UInt8(ascii: "m"): send(heading: content[0], sensorData: Sensors.microphone)
-            case UInt8(ascii: "P"): send(heading: content[0], sensorData: nil) // proximity
+            case UInt8(ascii: "P"): send(heading: content[0], sensorData: Sensors.proximity)
             case UInt8(ascii: "S"): send(heading: content[0], sensorData: nil) // step counter
             case UInt8(ascii: "l"): send(heading: content[0], sensorData: nil) // light level
             case UInt8(ascii: "X"): send(heading: content[0], sensorData: Sensors.location)
