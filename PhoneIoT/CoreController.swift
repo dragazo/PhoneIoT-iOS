@@ -243,7 +243,7 @@ class CoreController: ObservableObject {
         let sensors = [
             Sensors.accelerometer, Sensors.gravity, Sensors.linearAcceleration, Sensors.gyroscope,
             Sensors.rotationVector, Sensors.gameRotationVector, Sensors.magnetometer,
-            Sensors.proximity, Sensors.proximity, Sensors.stepCounter, Sensors.light,
+            Sensors.proximity, Sensors.proximity, Sensors.stepCount, Sensors.light,
             Sensors.location, Sensors.orientation,
         ]
         for sensor in sensors {
@@ -318,7 +318,7 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "M"): send(heading: content[0], sensorData: Sensors.magnetometer)
             case UInt8(ascii: "m"): send(heading: content[0], sensorData: Sensors.microphone)
             case UInt8(ascii: "P"): send(heading: content[0], sensorData: Sensors.proximity)
-            case UInt8(ascii: "S"): send(heading: content[0], sensorData: nil) // step counter
+            case UInt8(ascii: "S"): send(heading: content[0], sensorData: Sensors.stepCount)
             case UInt8(ascii: "l"): send(heading: content[0], sensorData: nil) // light level
             case UInt8(ascii: "X"): send(heading: content[0], sensorData: Sensors.location)
             case UInt8(ascii: "O"): send(heading: content[0], sensorData: nil) // orientation

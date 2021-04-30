@@ -122,6 +122,25 @@ class ProximityManager {
     }
 }
 
+class PedometerManager {
+    private let sensor = CMPedometer()
+    
+    static let global = PedometerManager()
+    private init() {}
+    
+    func start() {
+        sensor.startUpdates(from: Date()) { (data, error) in
+            guard error == nil else { return }
+            if let data = data {
+                Sensors.stepCount = [Double(truncating: data.numberOfSteps)]
+            }
+        }
+    }
+    func stop() {
+        sensor.stopUpdates()
+    }
+}
+
 class Sensors {
     private static let motion = CMMotionManager()
     
@@ -142,7 +161,7 @@ class Sensors {
     
     // these aren't implemented yet
     static var gameRotationVector: [Double]?
-    static var stepCounter: [Double]?
+    static var stepCount: [Double]?
     static var light: [Double]?
     static var orientation: [Double]?
     
@@ -220,6 +239,7 @@ class Sensors {
         LocationManager.global.start()
         MicrophoneManager.global.start()
         ProximityManager.global.start()
+        PedometerManager.global.start()
     }
     static func stop() {
         if updateTimer == nil { return }
@@ -234,5 +254,6 @@ class Sensors {
         LocationManager.global.stop()
         MicrophoneManager.global.stop()
         ProximityManager.global.stop()
+        PedometerManager.global.stop()
     }
 }
