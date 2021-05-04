@@ -25,6 +25,9 @@ protocol PushLike: CustomControl {
 protocol JoystickLike: CustomControl {
     func getJoystick() -> CGPoint
 }
+protocol TouchpadLike: CustomControl {
+    func getTouchpad() -> CGPoint?
+}
 protocol ImageLike: CustomControl {
     func getImage() -> CGImage
     func setImage(_ img: CGImage)
@@ -452,6 +455,103 @@ class CustomJoystick: CustomControl, JoystickLike {
         let x = landscape ? stick.y : stick.x
         let y = landscape ? stick.x : -stick.y
         return CGPoint(x: x, y: y)
+    }
+}
+
+class CustomTouchpad : CustomControl, TouchpadLike {
+    private var rect: CGRect
+    private var color: CGColor
+    private var id: [UInt8]
+    private var landscape: Bool
+    
+    private var cursor: CGPoint = .zero // each coord is [-1, 1]
+    private var cursorDown = false
+    
+    private static let backgroundAlpha: CGFloat = 0.4
+    private static let strokeWidth: CGFloat = 4
+    private static let cursorSize: CGFloat = 40
+    
+    private var lastUpdate = Date()
+    private static let updateInterval: Double = 0.1
+    private var updateCount: UInt32 = 0
+    
+    init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, color: CGColor, id: [UInt8], landscape: Bool) {
+        self.rect = CGRect(x: x, y: y, width: width, height: height)
+        self.color = color
+        self.id = id
+        self.landscape = landscape
+    }
+    
+    func getID() -> ArraySlice<UInt8> {
+        id[...]
+    }
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: rect.origin.x, y: rect.origin.y)
+        if landscape {
+            context.rotate(by: .pi / 2)
+        }
+        
+        let mainRect = CGRect(origin: .zero, size: rect.size)
+        context.setFillColor(color.copy(alpha: Self.backgroundAlpha)!)
+        context.fill(mainRect)
+        context.setStrokeColor(color)
+        context.setLineWidth(Self.strokeWidth)
+        context.stroke(mainRect)
+        
+        if cursorDown {
+            let fixpos = CGPoint(
+                x: (cursor.x + 1) * (rect.width / 2) - Self.cursorSize / 2,
+                y: (cursor.y + 1) * (rect.height / 2) - Self.cursorSize / 2
+            )
+            context.setFillColor(color)
+            context.fillEllipse(in: CGRect(origin: fixpos, size: CGSize(width: Self.cursorSize, height: Self.cursorSize)))
+        }
+        
+        context.restoreGState()
+    }
+    
+    func updateCursor(core: CoreController, point: CGPoint, tag: UInt8) {
+        let base = CGPoint(x: point.x - rect.origin.x, y: point.y - rect.origin.y)
+        let corrected = landscape ? CGPoint(x: base.y, y: -base.x) : base
+        let final = CGPoint(x: 2 * corrected.x / rect.width - 1, y: 2 * corrected.y / rect.height - 1)
+        if final.x < -1 || final.x > 1 || final.y < -1 || final.y > 1 { return }
+        cursor = final
+                
+        let now = Date()
+        if tag == 0 || now.timeIntervalSince(lastUpdate) >= Self.updateInterval { // throttle events since we're way faster than the server
+            lastUpdate = now
+            sendEvent(core: core, tag: tag)
+        }
+    }
+    func sendEvent(core: CoreController, tag: UInt8) {
+        let vec = getTouchpadRaw()
+        let content = toBEBytes(cgf32: vec.x) + toBEBytes(cgf32: vec.y) + [ tag ] + id
+        core.send(core.netsbloxify([ UInt8(ascii: "n") ] + toBEBytes(u32: updateCount) + content))
+        updateCount += 1
+    }
+    
+    func contains(pos: CGPoint) -> Bool {
+        let r = landscape ? rotate(rect: rect) : rect
+        return r.contains(pos)
+    }
+    func mouseDown(core: CoreController, pos: CGPoint) {
+        cursorDown = true
+        updateCursor(core: core, point: pos, tag: 0)
+    }
+    func mouseMove(core: CoreController, pos: CGPoint) {
+        updateCursor(core: core, point: pos, tag: 1)
+    }
+    func mouseUp(core: CoreController) {
+        cursorDown = false
+        sendEvent(core: core, tag: 2)
+    }
+    
+    func getTouchpadRaw() -> CGPoint {
+        CGPoint(x: cursor.x, y: -cursor.y)
+    }
+    func getTouchpad() -> CGPoint? {
+        cursorDown ? getTouchpadRaw() : nil
     }
 }
 

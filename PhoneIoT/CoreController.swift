@@ -545,6 +545,23 @@ class CoreController: ObservableObject {
                 send(netsbloxify([ content[0], tryAddControl(control: control) ]))
             }
             
+            // add touchpad
+            case UInt8(ascii: "N"): if content.count >= 31 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let width = fromBEBytes(cgf32: content[17..<21]) / 100 * canvasSize.width
+                var height = fromBEBytes(cgf32: content[21..<25]) / 100 * canvasSize.height
+                let color = fromBEBytes(cgcolor: content[25..<29])
+                if content[29] == 1 {
+                    height = width
+                }
+                let landscape = content[30] != 0
+                let id = [UInt8](content[31...])
+                
+                let control = CustomTouchpad(x: x, y: y, width: width, height: height, color: color, id: id, landscape: landscape)
+                send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+            }
+            
             // add toggle
             case UInt8(ascii: "Z"): if content.count >= 34 {
                 let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
