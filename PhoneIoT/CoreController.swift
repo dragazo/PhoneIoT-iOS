@@ -438,11 +438,15 @@ class CoreController: ObservableObject {
                 send(netsbloxify([ content[0], control == nil ? 2 : control!.isPushed() ? 1 : 0 ]))
             }
             
-            // get joystick vector
+            // get position
             case UInt8(ascii: "J"): if content.count >= 9 {
-                if let control = getControl(id: content[9...]) as? JoystickLike {
-                    let stick = control.getJoystick()
-                    send(netsbloxify([ content[0] ] + toBEBytes(cgf32: stick.x) + toBEBytes(cgf32: stick.y)))
+                if let control = getControl(id: content[9...]) as? PositionLike {
+                    if let pos = control.getPos() {
+                        send(netsbloxify([ content[0], 1 ] + toBEBytes(cgf32: pos.x) + toBEBytes(cgf32: pos.y)))
+                    }
+                    else {
+                        send(netsbloxify([ content[0], 0] ))
+                    }
                 }
                 else {
                     send(netsbloxify([ content[0] ]))

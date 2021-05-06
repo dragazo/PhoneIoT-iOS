@@ -22,11 +22,8 @@ protocol ToggleLike: CustomControl {
 protocol PushLike: CustomControl {
     func isPushed() -> Bool
 }
-protocol JoystickLike: CustomControl {
-    func getJoystick() -> CGPoint
-}
-protocol TouchpadLike: CustomControl {
-    func getTouchpad() -> CGPoint?
+protocol PositionLike: CustomControl {
+    func getPos() -> CGPoint?
 }
 protocol ImageLike: CustomControl {
     func getImage() -> CGImage
@@ -376,7 +373,7 @@ class CustomImageDisplay: CustomControl, ImageLike {
     }
 }
 
-class CustomJoystick: CustomControl, JoystickLike {
+class CustomJoystick: CustomControl, PositionLike, PushLike {
     private var rect: CGRect
     private var color: CGColor
     private var id: [UInt8]
@@ -386,6 +383,7 @@ class CustomJoystick: CustomControl, JoystickLike {
     private static let stickSize: CGFloat = 0.3333
     
     private var stick: CGPoint = .zero
+    private var cursorDown = false
     
     private var lastUpdate = Date()
     private static let updateInterval: Double = 0.1
@@ -432,8 +430,9 @@ class CustomJoystick: CustomControl, JoystickLike {
         }
     }
     func sendEvent(core: CoreController) {
-        let vec = getJoystick()
-        core.send(core.netsbloxify([ UInt8(ascii: "K") ] + toBEBytes(u32: updateCount) + toBEBytes(cgf32: vec.x) + toBEBytes(cgf32: vec.y) + id))
+        let pos = getPosRaw()
+        let msg = [ UInt8(ascii: "K") ] + toBEBytes(u32: updateCount) + toBEBytes(cgf32: pos.x) + toBEBytes(cgf32: pos.y) + id
+        core.send(core.netsbloxify(msg[...]))
         updateCount += 1
     }
     
@@ -441,6 +440,7 @@ class CustomJoystick: CustomControl, JoystickLike {
         ellipseContains(ellipse: rect, point: pos)
     }
     func mouseDown(core: CoreController, pos: CGPoint) {
+        cursorDown = true
         updateStick(core: core, point: pos)
     }
     func mouseMove(core: CoreController, pos: CGPoint) {
@@ -448,17 +448,25 @@ class CustomJoystick: CustomControl, JoystickLike {
     }
     func mouseUp(core: CoreController) {
         stick = .zero
+        cursorDown = false
         sendEvent(core: core) // make sure we definitely send this last event
     }
     
-    func getJoystick() -> CGPoint {
+    func getPosRaw() -> CGPoint {
         let x = landscape ? stick.y : stick.x
         let y = landscape ? stick.x : -stick.y
         return CGPoint(x: x, y: y)
     }
+    func getPos() -> CGPoint? {
+        getPosRaw()
+    }
+    
+    func isPushed() -> Bool {
+        cursorDown
+    }
 }
 
-class CustomTouchpad : CustomControl, TouchpadLike {
+class CustomTouchpad : CustomControl, PositionLike, PushLike {
     private var rect: CGRect
     private var color: CGColor
     private var id: [UInt8]
@@ -525,9 +533,10 @@ class CustomTouchpad : CustomControl, TouchpadLike {
         }
     }
     func sendEvent(core: CoreController, tag: UInt8) {
-        let vec = getTouchpadRaw()
-        let content = toBEBytes(cgf32: vec.x) + toBEBytes(cgf32: vec.y) + [ tag ] + id
-        core.send(core.netsbloxify([ UInt8(ascii: "n") ] + toBEBytes(u32: updateCount) + content))
+        let pos = getPosRaw()
+        let data = [ tag ] + toBEBytes(cgf32: pos.x) + toBEBytes(cgf32: pos.y) + id
+        let msg = [ UInt8(ascii: "n") ] + toBEBytes(u32: updateCount) + data
+        core.send(core.netsbloxify(msg[...]))
         updateCount += 1
     }
     
@@ -547,11 +556,14 @@ class CustomTouchpad : CustomControl, TouchpadLike {
         sendEvent(core: core, tag: 2)
     }
     
-    func getTouchpadRaw() -> CGPoint {
+    func getPosRaw() -> CGPoint {
         CGPoint(x: cursor.x, y: -cursor.y)
     }
-    func getTouchpad() -> CGPoint? {
-        cursorDown ? getTouchpadRaw() : nil
+    func getPos() -> CGPoint? {
+        cursorDown ? getPosRaw() : nil
+    }
+    func isPushed() -> Bool {
+        cursorDown
     }
 }
 
