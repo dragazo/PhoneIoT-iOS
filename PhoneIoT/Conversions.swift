@@ -74,6 +74,12 @@ func fromBEBytes(togglestyle: UInt8) -> ToggleStyle {
     default: return .toggleswitch
     }
 }
+func fromBEBytes(sliderstyle: UInt8) -> SliderStyle {
+    switch sliderstyle {
+    case 1: return .progress
+    default: return .slider
+    }
+}
 
 func uiImage(cgImage: CGImage) -> UIImage {
     UIImage(cgImage: cgImage)

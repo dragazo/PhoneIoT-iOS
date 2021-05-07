@@ -453,6 +453,29 @@ class CoreController: ObservableObject {
                 }
             }
             
+            // get level
+            case UInt8(ascii: "E"): if content.count >= 9 {
+                if let control = getControl(id: content[9...]) as? LevelLike {
+                    send(netsbloxify([ content[0] ] + toBEBytes(cgf32: control.getLevel())))
+                }
+                else {
+                    send(netsbloxify([ content[0] ]))
+                }
+            }
+            
+            // set level
+            case UInt8(ascii: "e"): if content.count >= 13 {
+                let level = fromBEBytes(cgf32: content[9..<13])
+                if let control = getControl(id: content[13...]) as? LevelLike {
+                    control.setLevel(level)
+                    triggerUpdate()
+                    send(netsbloxify([ content[0], 0 ]))
+                }
+                else {
+                    send(netsbloxify([ content[0], 3 ]))
+                }
+            }
+            
             // add label
             case UInt8(ascii: "g"): if content.count >= 28 {
                 let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
@@ -563,6 +586,22 @@ class CoreController: ObservableObject {
                 let id = [UInt8](content[31...])
                 
                 let control = CustomTouchpad(x: x, y: y, width: width, height: height, color: color, id: id, landscape: landscape)
+                send(netsbloxify([ content[0], tryAddControl(control: control) ]))
+            }
+            
+            // add slider
+            case UInt8(ascii: "D"): if content.count >= 32 {
+                let x = fromBEBytes(cgf32: content[9..<13]) / 100 * canvasSize.width
+                let y = fromBEBytes(cgf32: content[13..<17]) / 100 * canvasSize.height
+                let width = fromBEBytes(cgf32: content[17..<21]) / 100 * canvasSize.width
+                let color = fromBEBytes(cgcolor: content[21..<25])
+                let level = fromBEBytes(cgf32: content[25..<29])
+                let style = fromBEBytes(sliderstyle: content[29])
+                let landscape = content[30] != 0
+                let readonly = content[31] != 0
+                let id = [UInt8](content[32...])
+                
+                let control = CustomSlider(x: x, y: y, width: width, color: color, level: level, id: id, style: style, landscape: landscape, readonly: readonly)
                 send(netsbloxify([ content[0], tryAddControl(control: control) ]))
             }
             

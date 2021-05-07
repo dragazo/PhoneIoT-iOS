@@ -19,6 +19,10 @@ protocol ToggleLike: CustomControl {
     func getToggleState() -> Bool
     func setToggleState(_ state: Bool)
 }
+protocol LevelLike: CustomControl {
+    func getLevel() -> CGFloat
+    func setLevel(_ value: CGFloat)
+}
 protocol PushLike: CustomControl {
     func isPushed() -> Bool
 }
@@ -91,6 +95,12 @@ func drawString(_ text: String, in rect: CGRect, context: CGContext, fontSize: C
     str.draw(with: CGRect(origin: pos, size: bound.size), options: .usesLineFragmentOrigin, context: nil)
     context.restoreGState()
     UIGraphicsPopContext()
+}
+
+func localPos(_ pos: CGPoint, in rect: CGRect, landscape: Bool) -> CGPoint {
+    let base = CGPoint(x: pos.x - rect.origin.x, y: pos.y - rect.origin.y)
+    let corrected = landscape ? CGPoint(x: base.y, y: -base.x) : base
+    return CGPoint(x: corrected.x / rect.width, y: corrected.y / rect.height)
 }
 
 // ------------------------------------------------------------------------------------
@@ -412,7 +422,7 @@ class CustomJoystick: CustomControl, PositionLike, PushLike {
         context.fillEllipse(in: CGRect(origin: cgstick, size: CGSize(width: rect.width * Self.stickSize, height: rect.width * Self.stickSize)))
     }
     
-    func updateStick(core: CoreController, point: CGPoint) {
+    func updateStick(core: CoreController, point: CGPoint, tag: UInt8) {
         let radius = rect.width / 2
         var x = point.x - (rect.origin.x + radius)
         var y = point.y - (rect.origin.y + radius)
@@ -424,14 +434,15 @@ class CustomJoystick: CustomControl, PositionLike, PushLike {
         stick = CGPoint(x: x / radius, y: y / radius)
         
         let now = Date()
-        if now.timeIntervalSince(lastUpdate) >= Self.updateInterval { // throttle events since we're way faster than the server
+        if tag == 0 || now.timeIntervalSince(lastUpdate) >= Self.updateInterval { // throttle events since we're way faster than the server
             lastUpdate = now
-            sendEvent(core: core)
+            sendEvent(core: core, tag: tag)
         }
     }
-    func sendEvent(core: CoreController) {
+    func sendEvent(core: CoreController, tag: UInt8) {
         let pos = getPosRaw()
-        let msg = [ UInt8(ascii: "K") ] + toBEBytes(u32: updateCount) + toBEBytes(cgf32: pos.x) + toBEBytes(cgf32: pos.y) + id
+        let data = toBEBytes(cgf32: pos.x) + toBEBytes(cgf32: pos.y) + id
+        let msg = [ UInt8(ascii: "n") ] + toBEBytes(u32: updateCount) + [ tag ] + data
         core.send(core.netsbloxify(msg[...]))
         updateCount += 1
     }
@@ -441,15 +452,15 @@ class CustomJoystick: CustomControl, PositionLike, PushLike {
     }
     func mouseDown(core: CoreController, pos: CGPoint) {
         cursorDown = true
-        updateStick(core: core, point: pos)
+        updateStick(core: core, point: pos, tag: 0)
     }
     func mouseMove(core: CoreController, pos: CGPoint) {
-        updateStick(core: core, point: pos)
+        updateStick(core: core, point: pos, tag: 1)
     }
     func mouseUp(core: CoreController) {
         stick = .zero
         cursorDown = false
-        sendEvent(core: core) // make sure we definitely send this last event
+        sendEvent(core: core, tag: 2) // make sure we definitely send this last event
     }
     
     func getPosRaw() -> CGPoint {
@@ -520,12 +531,10 @@ class CustomTouchpad : CustomControl, PositionLike, PushLike {
     }
     
     func updateCursor(core: CoreController, point: CGPoint, tag: UInt8) {
-        let base = CGPoint(x: point.x - rect.origin.x, y: point.y - rect.origin.y)
-        let corrected = landscape ? CGPoint(x: base.y, y: -base.x) : base
-        let final = CGPoint(x: 2 * corrected.x / rect.width - 1, y: 2 * corrected.y / rect.height - 1)
-        if final.x < -1 || final.x > 1 || final.y < -1 || final.y > 1 { return }
-        cursor = final
-                
+        let local = localPos(point, in: rect, landscape: landscape)
+        if local.x < 0 || local.x > 1 || local.y < 0 || local.y > 1 { return }
+        cursor = CGPoint(x: 2 * local.x - 1, y: 2 * local.y - 1)
+        
         let now = Date()
         if tag == 0 || now.timeIntervalSince(lastUpdate) >= Self.updateInterval { // throttle events since we're way faster than the server
             lastUpdate = now
@@ -562,6 +571,142 @@ class CustomTouchpad : CustomControl, PositionLike, PushLike {
     func getPos() -> CGPoint? {
         cursorDown ? getPosRaw() : nil
     }
+    func isPushed() -> Bool {
+        cursorDown
+    }
+}
+
+enum SliderStyle {
+    case slider, progress
+}
+class CustomSlider: CustomControl, LevelLike, PushLike {
+    private var rect: CGRect
+    private var color: CGColor
+    private var level: CGFloat
+    private var id: [UInt8]
+    private var style: SliderStyle
+    private var landscape: Bool
+    private var readonly: Bool
+    
+    private var cursorDown = false
+    
+    private static let clickPadding: CGFloat = 35
+    private static let barHeight: CGFloat = 20
+    private static let sliderRadius: CGFloat = 20
+    private static let strokeWidth: CGFloat = 3
+    private static let fillAlpha: CGFloat = 0.4
+    
+    private var lastUpdate = Date()
+    private static let updateInterval: Double = 0.1
+    private var updateCount: UInt32 = 0
+    
+    init(x: CGFloat, y: CGFloat, width: CGFloat, color: CGColor, level: CGFloat, id: [UInt8], style: SliderStyle, landscape: Bool, readonly: Bool) {
+        self.rect = CGRect(x: x, y: y, width: width, height: Self.barHeight)
+        self.color = color
+        self.level = min(1, max(0, level))
+        self.id = id
+        self.style = style
+        self.landscape = landscape
+        self.readonly = readonly
+    }
+    
+    func getID() -> ArraySlice<UInt8> {
+        id[...]
+    }
+    
+    func draw(context: CGContext, baseFontSize: CGFloat) {
+        context.saveGState()
+        context.translateBy(x: rect.origin.x, y: rect.origin.y)
+        if landscape {
+            context.rotate(by: .pi / 2)
+        }
+        
+        if style == .progress && level > 0 {
+            context.setFillColor(color.copy(alpha: Self.fillAlpha)!)
+            let len = rect.width * level
+            
+            context.beginPath()
+            context.move(to: .zero)
+            context.addLine(to: CGPoint(x: len, y: 0))
+            context.addLine(to: CGPoint(x: len, y: rect.height))
+            if level < 1 {
+                context.addLine(to: CGPoint(x: 0, y: rect.height))
+            }
+            else {
+                context.addArc(center: CGPoint(x: rect.width, y: rect.height / 2), radius: rect.height / 2, startAngle: 3 * .pi / 2, endAngle: .pi / 2, clockwise: false)
+            }
+            context.addArc(center: CGPoint(x: 0, y: rect.height / 2), radius: rect.height / 2, startAngle: .pi / 2, endAngle: 3 * .pi / 2, clockwise: false)
+            context.fillPath()
+        }
+        
+        context.setStrokeColor(color)
+        context.setLineWidth(Self.strokeWidth)
+        context.beginPath()
+        context.move(to: .zero)
+        context.addLine(to: CGPoint(x: rect.width, y: 0))
+        context.addArc(center: CGPoint(x: rect.width, y: rect.height / 2), radius: rect.height / 2, startAngle: 3 * .pi / 2, endAngle: .pi / 2, clockwise: false)
+        context.addLine(to: CGPoint(x: 0, y: rect.height))
+        context.addArc(center: CGPoint(x: 0, y: rect.height / 2), radius: rect.height / 2, startAngle: .pi / 2, endAngle: 3 * .pi / 2, clockwise: false)
+        context.strokePath()
+        
+        if style == .slider {
+            let sliderPos = CGPoint(x: rect.width * level, y: rect.height / 2)
+            let r = inflate(rect: CGRect(origin: sliderPos, size: .zero), by: Self.sliderRadius)
+            
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fillEllipse(in: r)
+            context.setFillColor(color.copy(alpha: Self.fillAlpha)!)
+            context.fillEllipse(in: r)
+            context.setStrokeColor(color)
+            context.strokeEllipse(in: r)
+        }
+        
+        context.restoreGState()
+    }
+    
+    func updateCursor(core: CoreController, point: CGPoint, tag: UInt8) {
+        let local = localPos(point, in: rect, landscape: landscape)
+        let newLevel = min(1, max(0, local.x))
+        if level == newLevel { return }
+        level = newLevel
+        
+        let now = Date()
+        if tag == 0 || now.timeIntervalSince(lastUpdate) >= Self.updateInterval { // throttle events since we're way faster than the server
+            lastUpdate = now
+            sendEvent(core: core, tag: tag)
+        }
+    }
+    func sendEvent(core: CoreController, tag: UInt8) {
+        let msg = [ UInt8(ascii: "d") ] + toBEBytes(u32: updateCount) + [ tag ] + toBEBytes(cgf32: level) + id
+        core.send(core.netsbloxify(msg[...]))
+        updateCount += 1
+    }
+    
+    func contains(pos: CGPoint) -> Bool {
+        if readonly { return false }
+        
+        let r = landscape ? rotate(rect: rect) : rect
+        return inflate(rect: r, by: Self.clickPadding).contains(pos)
+    }
+    func mouseDown(core: CoreController, pos: CGPoint) {
+        cursorDown = true
+        updateCursor(core: core, point: pos, tag: 0)
+    }
+    func mouseMove(core: CoreController, pos: CGPoint) {
+        updateCursor(core: core, point: pos, tag: 1)
+    }
+    func mouseUp(core: CoreController) {
+        cursorDown = false
+        sendEvent(core: core, tag: 2)
+    }
+    
+    func getLevel() -> CGFloat {
+        level
+    }
+    func setLevel(_ value: CGFloat) {
+        level = min(1, max(0, value))
+    }
+    
     func isPushed() -> Bool {
         cursorDown
     }
