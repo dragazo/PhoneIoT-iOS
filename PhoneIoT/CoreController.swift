@@ -677,10 +677,13 @@ class CoreController: ObservableObject {
             // start listening for (complete) packets
             self.udp!.receiveMessage(completion: self.messageHandler)
             
-            // start the hearbeat timer if it isn't already - we need one per 2 min, so 30 secs will allow for some dropped packets
-            if self.heatbeatTimer == nil {
-                self.heatbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { t in
-                    self.send(self.netsbloxify([ UInt8(ascii: "I") ]))
+            // needs to be in main thread for timer to work
+            DispatchQueue.main.async {
+                // start the hearbeat timer if it isn't already - we need one per 2 min, so 30 secs will allow for some dropped packets
+                if self.heatbeatTimer == nil {
+                    self.heatbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { t in
+                        self.send(self.netsbloxify([ UInt8(ascii: "I") ]))
+                    }
                 }
             }
             
