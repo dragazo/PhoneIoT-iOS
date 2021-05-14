@@ -64,7 +64,7 @@ class CoreController: ObservableObject {
     var initialized = false
     var scenePhase: ScenePhase = .background
     
-    @Published var showMenu = false
+    @Published var showMenu = true
     
     @Published var showImagePicker = false
     var imagePickerTarget: ImageLike?
@@ -84,7 +84,7 @@ class CoreController: ObservableObject {
     
     static let passwordLifecycle: Double = 24 * 60 * 60
     
-    @Published var addresstxt: String = "10.0.0.24"
+    @Published var addresstxt: String = "editor.netsblox.org"
     static let defaultServerPort: UInt16 = 1976
     
     @Published var toastMessages = [(String, TimeInterval)]()

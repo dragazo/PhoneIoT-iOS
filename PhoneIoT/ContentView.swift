@@ -240,6 +240,8 @@ struct ContentView: View {
                                 Text("Server Address:")
                                 
                                 TextField("Server Address", text: $core.addresstxt)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
                                     .multilineTextAlignment(.center)
                                     .padding(.top, 10)
                                 Divider().frame(width: menuWidth * 0.9)
@@ -269,7 +271,7 @@ struct ContentView: View {
                                         .alert(isPresented: $core.runInBackgroundDialog) {
                                             Alert(
                                                 title: Text("Warning"),
-                                                message: Text("Due to accessing sensor data, running in the background can consume a lot of power if you forget to close the app. Additionally, if location is enabled, it may still be tracked while running in the background."),
+                                                message: Text("Note: this is an experimental feature and may not function correctly on all devices.\n\nDue to accessing sensor data, running in the background can consume a lot of power if you forget to close the app. Additionally, if location is enabled, it may still be tracked while running in the background."),
                                                 primaryButton: .default(Text("OK")) { },
                                                 secondaryButton: .cancel(Text("Cancel")) {
                                                     core.runInBackground = false
