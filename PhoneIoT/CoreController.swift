@@ -321,7 +321,7 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "S"): send(heading: content[0], sensorData: Sensors.stepCount)
             case UInt8(ascii: "l"): send(heading: content[0], sensorData: nil) // light level
             case UInt8(ascii: "X"): send(heading: content[0], sensorData: Sensors.location)
-            case UInt8(ascii: "O"): send(heading: content[0], sensorData: nil) // orientation
+            case UInt8(ascii: "O"): send(heading: content[0], sensorData: Sensors.orientation)
                 
             // authenticate
             case UInt8(ascii: "a"): send(netsbloxify([ content[0] ]))

@@ -153,6 +153,7 @@ class Sensors {
     static var rotationVector: [Double]?
     static var accelerometer: [Double]?
     static var magnetometer: [Double]?
+    static var orientation: [Double]?
     static var microphone: [Double]? // microphone level (linear)
     static var gyroscope: [Double]?
     static var proximity: [Double]?
@@ -163,7 +164,6 @@ class Sensors {
     static var gameRotationVector: [Double]?
     static var stepCount: [Double]?
     static var light: [Double]?
-    static var orientation: [Double]?
     
     private static func update(accelerometer data: CMAcceleration) {
         accelerometer = [accelerometerScale * data.x, accelerometerScale * data.y, accelerometerScale * data.z]
@@ -182,6 +182,11 @@ class Sensors {
     }
     private static func update(rotationVector data: CMAttitude) {
         rotationVector = [data.pitch, data.roll, data.yaw, 1]
+    }
+    private static func update(orientation data: CMAttitude) {
+        var yaw = data.yaw + .pi / 2
+        if yaw >= .pi { yaw -= 2 * .pi }
+        orientation = [-yaw, data.pitch, data.roll]
     }
     
     private static func add(_ a: [Double], _ b: [Double]) -> [Double] {
@@ -204,6 +209,7 @@ class Sensors {
                     update(gyroscope: data.rotationRate)
                     update(magnetometer: data.magneticField.field)
                     update(rotationVector: data.attitude)
+                    update(orientation: data.attitude)
                 }
             }
             else {
@@ -219,7 +225,7 @@ class Sensors {
         
         if motion.isDeviceMotionAvailable { // this is the cool one if it's available; has everything and does sensor fusion
             motion.deviceMotionUpdateInterval = sensorUpdateInterval
-            motion.startDeviceMotionUpdates()
+            motion.startDeviceMotionUpdates(using: .xMagneticNorthZVertical)
         }
         else {
             if motion.isAccelerometerAvailable {
