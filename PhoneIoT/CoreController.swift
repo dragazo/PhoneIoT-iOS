@@ -404,7 +404,7 @@ class CoreController: ObservableObject {
             // get image
             case UInt8(ascii: "u"): if content.count >= 9 {
                 if let target = getControl(id: content[9...]) as? ImageLike {
-                    if let data = jpeg(uiImage: uiImage(cgImage: target.getImage())) {
+                    if let data = jpeg(uiImage: scaleImageForUDP(img: target.getImage())) {
                         send(netsbloxify([ content[0] ] + data))
                     }
                 }

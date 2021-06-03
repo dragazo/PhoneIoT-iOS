@@ -105,7 +105,8 @@ func scaleImageForUDP(img: CGImage) -> UIImage {
     UIGraphicsBeginImageContext(newSize)
     let context = UIGraphicsGetCurrentContext()!
     
-    context.draw(img, in: CGRect(origin: .zero, size: newSize))
+    let clip = CGRect(origin: .zero, size: newSize)
+    drawImage(context: context, img: img, in: clip, clip: clip) // func fixes an upside down image bug
     
     let img = UIGraphicsGetImageFromCurrentImageContext()!
     UIGraphicsEndImageContext()
@@ -121,6 +122,7 @@ func jpeg(uiImage: UIImage) -> [UInt8]? {
     
     var buf = [UInt8](repeating: 0, count: data.count)
     data.copyBytes(to: &buf, count: data.count)
+    print("jpeg size (bytes): \(data.count)")
     return buf
 }
 
