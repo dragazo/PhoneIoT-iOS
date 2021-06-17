@@ -40,6 +40,7 @@ private class LocationManager: NSObject, CLLocationManagerDelegate {
     }
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         if status == .authorizedWhenInUse || status == .authorizedAlways {
+            print("location - user authorized")
             start()
         }
     }
@@ -149,6 +150,8 @@ class Sensors {
     
     private static let accelerometerScale: Double = -9.81
     
+    private static let radToDeg: Double = 180 / .pi
+    
     static var linearAcceleration: [Double]?
     static var rotationVector: [Double]?
     static var accelerometer: [Double]?
@@ -178,15 +181,15 @@ class Sensors {
         magnetometer = [data.x, data.y, data.z]
     }
     private static func update(gyroscope data: CMRotationRate) {
-        gyroscope = [data.x, data.y, data.z]
+        gyroscope = [radToDeg * data.x, radToDeg * data.y, radToDeg * data.z]
     }
     private static func update(rotationVector data: CMAttitude) {
-        rotationVector = [data.pitch, data.roll, data.yaw, 1]
+        rotationVector = [radToDeg * data.pitch, radToDeg * data.roll, radToDeg * data.yaw, 1]
     }
     private static func update(orientation data: CMAttitude) {
         var yaw = data.yaw + .pi / 2
         if yaw >= .pi { yaw -= 2 * .pi }
-        orientation = [-yaw, data.pitch, data.roll]
+        orientation = [radToDeg * -yaw, radToDeg * data.pitch, radToDeg * data.roll]
     }
     
     private static func add(_ a: [Double], _ b: [Double]) -> [Double] {

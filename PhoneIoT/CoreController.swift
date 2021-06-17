@@ -101,6 +101,8 @@ class CoreController: ObservableObject {
     var canvasSize: CGSize = CGSize(width: 50, height: 50)
     static let maxControls: Int = 1024
     
+    static let invalidHexStrRegex = try! NSRegularExpression(pattern: "^([0-9]*e[0-9]*)$", options: .caseInsensitive)
+    
     // checks if we should be live an performing communication with the server
     func isLive() -> Bool {
         return scenePhase == .active || runInBackground
@@ -201,15 +203,28 @@ class CoreController: ObservableObject {
         }
     }
     
+    private static func isValidHexStr(_ str: String) -> Bool {
+        Self.invalidHexStrRegex.firstMatch(in: str, options: .anchored, range: NSRange(str.startIndex..., in: str)) == nil
+    }
+    
     func getPassword() -> UInt64 {
         let time = getTime()
         if time < passwordExpiry {
             return password
         }
         
-        password = UInt64.random(in: 0...0xffffffff)
+        var t: UInt64 = 0
+        while true {
+            t = UInt64.random(in: 0...0xffffffff)
+            let str = String(format: "%08llx", t)
+            if Self.isValidHexStr(str) {
+                break
+            }
+        }
+        
+        password = t
         passwordExpiry = time + Self.passwordLifecycle
-        print("changed password to \(password)")
+        print("changed password to \(password) = \(String(format: "%08llx", password))")
         return password
     }
     func netsbloxify(_ msg: ArraySlice<UInt8>) -> [UInt8] {
@@ -701,9 +716,18 @@ class CoreController: ObservableObject {
         var addr = defaults.array(forKey: "macaddr") as? [UInt8]
         if addr == nil {
             var res = [UInt8]()
-            for _ in 0..<6 {
-                res.append(UInt8.random(in: UInt8.min...UInt8.max))
+            while true {
+                res.removeAll()
+                for _ in 0..<6 {
+                    res.append(UInt8.random(in: UInt8.min...UInt8.max))
+                }
+                
+                let str = toHex(bytes: res[...])
+                if Self.isValidHexStr(str) {
+                    break
+                }
             }
+            
             defaults.set(res, forKey: "macaddr")
             addr = res
         }
