@@ -348,6 +348,7 @@ struct ContentView: View {
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear(perform: core.initialize)
         .onChange(of: scenePhase, perform: { phase in core.scenePhase = phase }) // for some reason using self.scenePhase here doesn't work
+        .preferredColorScheme(.light)
     }
 }
 

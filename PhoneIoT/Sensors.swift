@@ -108,12 +108,12 @@ class ProximityManager {
     
     func start() {
         let device = UIDevice.current
-        device.isProximityMonitoringEnabled = true
+        //device.isProximityMonitoringEnabled = true // this causes the screen to go blank, so don't do it
         NotificationCenter.default.addObserver(self, selector: #selector(proximityChanged), name: UIDevice.proximityStateDidChangeNotification, object: device)
     }
     func stop() {
-        let device = UIDevice.current
-        device.isProximityMonitoringEnabled = false
+        //let device = UIDevice.current
+        //device.isProximityMonitoringEnabled = false
         NotificationCenter.default.removeObserver(self, name: UIDevice.proximityStateDidChangeNotification, object: nil)
     }
     
