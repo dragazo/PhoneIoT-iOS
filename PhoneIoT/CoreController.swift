@@ -309,13 +309,21 @@ class CoreController: ObservableObject {
             let content = [UInt8](msg!)
 
             // don't do any communication if we're not live (we can receive, but don't respond)
-            if !isLive() { return }
+            if content.isEmpty || !isLive() { return }
             
             // check for things that don't need auth
-            if content.count == 1 && content[0] == UInt8(ascii: "I") {
-                // connected to server ack - give user a message
-                toast(msg: "Connected to NetsBlox", duration: 3)
-                return
+            if content.count <= 2 && content[0] == UInt8(ascii: "I") {
+                if content.count == 1 || (content.count == 2 && content[1] == 1) { // count 1 is for backwards compat with server - eventually not needed
+                    toast(msg: "Connected to NetsBlox", duration: 3)
+                    return
+                }
+                else if content.count == 2 && content[1] == 87 {
+                    toast(msg: "Connection Reset", duration: 2.5)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { // server checks for disposal every 1 sec
+                        self.connectToServer()
+                    }
+                    return
+                }
             }
 
             // ignore anything that's invalid or fails to auth
@@ -668,6 +676,9 @@ class CoreController: ObservableObject {
             default: print("unrecognized request code: \(content[0])")
             }
         }
+    }
+    func requestConnReset() {
+        send(netsbloxify([ UInt8(ascii: "I"), 86 ]))
     }
     func connectToServer() {
         // if we already had a connection, kill it first

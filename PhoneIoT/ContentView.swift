@@ -239,21 +239,31 @@ struct ContentView: View {
                             Group {
                                 Text("Server Address:")
                                 
-                                TextField("Server Address", text: $core.addresstxt)
-                                    .autocapitalization(.none)
-                                    .disableAutocorrection(true)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.top, 10)
-                                Divider().frame(width: menuWidth * 0.9)
-                                Spacer().frame(height: 20)
-                                
-                                Button("Connect") {
-                                    core.connectToServer()
+                                Group {
+                                    TextField("Server Address", text: $core.addresstxt)
+                                        .autocapitalization(.none)
+                                        .disableAutocorrection(true)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.top, 10)
+                                    Divider().frame(width: menuWidth * 0.9)
+                                    Spacer().frame(height: 20)
+                                    
+                                    Button("Connect") {
+                                        core.connectToServer()
+                                    }
+                                    .padding(EdgeInsets(top: 7, leading: 15, bottom: 10, trailing: 15))
+                                    .background(Color.blue)
+                                    .cornerRadius(5)
+                                    .foregroundColor(Color.white)
+                                    
+                                    Button("Reset Connection") {
+                                        core.requestConnReset()
+                                    }
+                                    .padding(EdgeInsets(top: 10, leading: 15, bottom: 7, trailing: 15))
+                                    .background(Color.blue)
+                                    .cornerRadius(5)
+                                    .foregroundColor(Color.white)
                                 }
-                                .padding(EdgeInsets(top: 7, leading: 15, bottom: 7, trailing: 15))
-                                .background(Color.blue)
-                                .cornerRadius(5)
-                                .foregroundColor(Color.white)
                                 
                                 Spacer().frame(height: 40)
                                 Group {
