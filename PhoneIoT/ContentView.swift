@@ -249,6 +249,8 @@ struct ContentView: View {
                                     Spacer().frame(height: 20)
                                     
                                     Button("Connect") {
+                                        let defaults = UserDefaults.standard
+                                        defaults.setValue(core.addresstxt, forKey: "nbaddr") // save server addr only when we /press/ connect
                                         core.connectToServer()
                                     }
                                     .padding(EdgeInsets(top: 7, leading: 15, bottom: 10, trailing: 15))

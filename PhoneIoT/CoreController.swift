@@ -258,7 +258,7 @@ class CoreController: ObservableObject {
         let sensors = [
             Sensors.accelerometer, Sensors.gravity, Sensors.linearAcceleration, Sensors.gyroscope,
             Sensors.rotationVector, Sensors.gameRotationVector, Sensors.magnetometer,
-            Sensors.proximity, Sensors.proximity, Sensors.stepCount, Sensors.light,
+            Sensors.microphone, Sensors.proximity, Sensors.stepCount, Sensors.light,
             Sensors.location, Sensors.orientation,
         ]
         for sensor in sensors {
@@ -743,6 +743,10 @@ class CoreController: ObservableObject {
             addr = res
         }
         macaddr = addr!
+        
+        if let saved_nbadder = defaults.string(forKey: "nbaddr") {
+            addresstxt = saved_nbadder
+        }
         
         // read the stored "runinbackground" for the device
         runInBackground = defaults.bool(forKey: "runinbackground") // default if not defined is false, which works for our needs
