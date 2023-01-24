@@ -259,7 +259,8 @@ class CoreController: ObservableObject {
             Sensors.accelerometer, Sensors.gravity, Sensors.linearAcceleration, Sensors.gyroscope,
             Sensors.rotationVector, Sensors.gameRotationVector, Sensors.magnetometer,
             Sensors.microphone, Sensors.proximity, Sensors.stepCount, Sensors.light,
-            Sensors.location, Sensors.orientation,
+            Sensors.location, Sensors.orientation, Sensors.pressure, Sensors.ambientTemperature,
+            Sensors.relativeHumidity,
         ]
         for sensor in sensors {
             if let data = sensor {
@@ -337,12 +338,15 @@ class CoreController: ObservableObject {
             case UInt8(ascii: "L"): send(heading: content[0], sensorData: Sensors.linearAcceleration)
             case UInt8(ascii: "Y"): send(heading: content[0], sensorData: Sensors.gyroscope)
             case UInt8(ascii: "R"): send(heading: content[0], sensorData: Sensors.rotationVector)
-            case UInt8(ascii: "r"): send(heading: content[0], sensorData: nil) // game rotation vector
+            case UInt8(ascii: "r"): send(heading: content[0], sensorData: Sensors.gameRotationVector)
             case UInt8(ascii: "M"): send(heading: content[0], sensorData: Sensors.magnetometer)
             case UInt8(ascii: "m"): send(heading: content[0], sensorData: Sensors.microphone)
             case UInt8(ascii: "P"): send(heading: content[0], sensorData: Sensors.proximity)
             case UInt8(ascii: "S"): send(heading: content[0], sensorData: Sensors.stepCount)
-            case UInt8(ascii: "l"): send(heading: content[0], sensorData: nil) // light level
+            case UInt8(ascii: "l"): send(heading: content[0], sensorData: Sensors.light)
+            case UInt8(ascii: "F"): send(heading: content[0], sensorData: Sensors.pressure)
+            case UInt8(ascii: "f"): send(heading: content[0], sensorData: Sensors.ambientTemperature)
+            case UInt8(ascii: "K"): send(heading: content[0], sensorData: Sensors.relativeHumidity)
             case UInt8(ascii: "X"): send(heading: content[0], sensorData: Sensors.location)
             case UInt8(ascii: "O"): send(heading: content[0], sensorData: Sensors.orientation)
                 

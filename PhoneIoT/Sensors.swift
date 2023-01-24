@@ -142,6 +142,25 @@ class PedometerManager {
     }
 }
 
+class PressureManager {
+    private let sensor = CMAltimeter()
+    
+    static let global = PressureManager()
+    private init() {}
+    
+    func start() {
+        sensor.startRelativeAltitudeUpdates(to: OperationQueue.main) { (data, error) in
+            guard error == nil else { return }
+            if let data = data {
+                Sensors.pressure = [data.pressure.doubleValue]
+            }
+        }
+    }
+    func stop() {
+        sensor.stopRelativeAltitudeUpdates()
+    }
+}
+
 class Sensors {
     private static let motion = CMMotionManager()
     
@@ -160,12 +179,15 @@ class Sensors {
     static var microphone: [Double]? // microphone level (linear)
     static var gyroscope: [Double]?
     static var proximity: [Double]?
+    static var stepCount: [Double]?
     static var location: [Double]? // lat, long, bearing, altitude
+    static var pressure: [Double]?
     static var gravity: [Double]?
     
     // these aren't implemented yet
+    static var ambientTemperature: [Double]?
     static var gameRotationVector: [Double]?
-    static var stepCount: [Double]?
+    static var relativeHumidity: [Double]?
     static var light: [Double]?
     
     private static func update(accelerometer data: CMAcceleration) {
@@ -249,6 +271,7 @@ class Sensors {
         MicrophoneManager.global.start()
         ProximityManager.global.start()
         PedometerManager.global.start()
+        PressureManager.global.start()
     }
     static func stop() {
         if updateTimer == nil { return }
@@ -264,5 +287,6 @@ class Sensors {
         MicrophoneManager.global.stop()
         ProximityManager.global.stop()
         PedometerManager.global.stop()
+        PressureManager.global.stop()
     }
 }
