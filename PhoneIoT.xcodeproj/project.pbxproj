@@ -15,7 +15,32 @@
 		03A3353E25E8B6F0004F65DD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A3353D25E8B6F0004F65DD /* ContentView.swift */; };
 		03A3354025E8B6F1004F65DD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03A3353F25E8B6F1004F65DD /* Assets.xcassets */; };
 		03A3354325E8B6F1004F65DD /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03A3354225E8B6F1004F65DD /* Preview Assets.xcassets */; };
+		03E5FD9C2980D234005BC87D /* WatchIoT.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 03E5FD8F2980D233005BC87D /* WatchIoT.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		03E5FD9A2980D234005BC87D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 03A3353025E8B6F0004F65DD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 03E5FD8E2980D233005BC87D;
+			remoteInfo = "WatchIoT Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		03E5FD9D2980D234005BC87D /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				03E5FD9C2980D234005BC87D /* WatchIoT.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		030742E6260970D400D46A5A /* Controls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controls.swift; sourceTree = "<group>"; };
@@ -28,10 +53,22 @@
 		03A3353F25E8B6F1004F65DD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		03A3354225E8B6F1004F65DD /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		03A3354425E8B6F1004F65DD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		03E5FD8F2980D233005BC87D /* WatchIoT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatchIoT.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		03E5FDA72980D2D9005BC87D /* WatchIoTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchIoTApp.swift; sourceTree = "<group>"; };
+		03E5FDA92980D2D9005BC87D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		03E5FDAB2980D2DA005BC87D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		03E5FDAE2980D2DA005BC87D /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		03A3353525E8B6F0004F65DD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03E5FD8C2980D233005BC87D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -45,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				03A3353A25E8B6F0004F65DD /* PhoneIoT */,
+				03E5FDA62980D2D9005BC87D /* WatchIoT */,
 				03A3353925E8B6F0004F65DD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -53,6 +91,7 @@
 			isa = PBXGroup;
 			children = (
 				03A3353825E8B6F0004F65DD /* PhoneIoT.app */,
+				03E5FD8F2980D233005BC87D /* WatchIoT.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -81,6 +120,25 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
+		03E5FDA62980D2D9005BC87D /* WatchIoT */ = {
+			isa = PBXGroup;
+			children = (
+				03E5FDA72980D2D9005BC87D /* WatchIoTApp.swift */,
+				03E5FDA92980D2D9005BC87D /* ContentView.swift */,
+				03E5FDAB2980D2DA005BC87D /* Assets.xcassets */,
+				03E5FDAD2980D2DA005BC87D /* Preview Content */,
+			);
+			path = WatchIoT;
+			sourceTree = "<group>";
+		};
+		03E5FDAD2980D2DA005BC87D /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				03E5FDAE2980D2DA005BC87D /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -91,14 +149,33 @@
 				03A3353425E8B6F0004F65DD /* Sources */,
 				03A3353525E8B6F0004F65DD /* Frameworks */,
 				03A3353625E8B6F0004F65DD /* Resources */,
+				03E5FD9D2980D234005BC87D /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				03E5FD9B2980D234005BC87D /* PBXTargetDependency */,
+			);
+			name = PhoneIoT;
+			productName = PhoneIoT;
+			productReference = 03A3353825E8B6F0004F65DD /* PhoneIoT.app */;
+			productType = "com.apple.product-type.application";
+		};
+		03E5FD8E2980D233005BC87D /* WatchIoT */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 03E5FDA02980D234005BC87D /* Build configuration list for PBXNativeTarget "WatchIoT" */;
+			buildPhases = (
+				03E5FD8B2980D233005BC87D /* Sources */,
+				03E5FD8C2980D233005BC87D /* Frameworks */,
+				03E5FD8D2980D233005BC87D /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = PhoneIoT;
-			productName = PhoneIoT;
-			productReference = 03A3353825E8B6F0004F65DD /* PhoneIoT.app */;
+			name = WatchIoT;
+			productName = "WatchIoT Watch App";
+			productReference = 03E5FD8F2980D233005BC87D /* WatchIoT.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -107,11 +184,14 @@
 		03A3353025E8B6F0004F65DD /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 1250;
+				LastSwiftUpdateCheck = 1420;
 				LastUpgradeCheck = 1250;
 				TargetAttributes = {
 					03A3353725E8B6F0004F65DD = {
 						CreatedOnToolsVersion = 12.5;
+					};
+					03E5FD8E2980D233005BC87D = {
+						CreatedOnToolsVersion = 14.2;
 					};
 				};
 			};
@@ -129,6 +209,7 @@
 			projectRoot = "";
 			targets = (
 				03A3353725E8B6F0004F65DD /* PhoneIoT */,
+				03E5FD8E2980D233005BC87D /* WatchIoT */,
 			);
 		};
 /* End PBXProject section */
@@ -140,6 +221,13 @@
 			files = (
 				03A3354325E8B6F1004F65DD /* Preview Assets.xcassets in Resources */,
 				03A3354025E8B6F1004F65DD /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03E5FD8D2980D233005BC87D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -159,7 +247,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		03E5FD8B2980D233005BC87D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		03E5FD9B2980D234005BC87D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 03E5FD8E2980D233005BC87D /* WatchIoT */;
+			targetProxy = 03E5FD9A2980D234005BC87D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		03A3354525E8B6F1004F65DD /* Debug */ = {
@@ -324,6 +427,68 @@
 			};
 			name = Release;
 		};
+		03E5FD9E2980D234005BC87D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"WatchIoT/Preview Content\"";
+				DEVELOPMENT_TEAM = DWFZZW83V8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = WatchIoT;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = NetsBlox.PhoneIoT;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = NetsBlox.PhoneIoT.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.1;
+			};
+			name = Debug;
+		};
+		03E5FD9F2980D234005BC87D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"WatchIoT/Preview Content\"";
+				DEVELOPMENT_TEAM = DWFZZW83V8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = WatchIoT;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = NetsBlox.PhoneIoT;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = NetsBlox.PhoneIoT.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -341,6 +506,15 @@
 			buildConfigurations = (
 				03A3354825E8B6F1004F65DD /* Debug */,
 				03A3354925E8B6F1004F65DD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		03E5FDA02980D234005BC87D /* Build configuration list for PBXNativeTarget "WatchIoT" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				03E5FD9E2980D234005BC87D /* Debug */,
+				03E5FD9F2980D234005BC87D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
